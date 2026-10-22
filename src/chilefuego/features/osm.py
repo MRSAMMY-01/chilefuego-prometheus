@@ -20,13 +20,13 @@ import geopandas as gpd  # type: ignore[import-untyped]
 import numpy as np
 import polars as pl
 import pyogrio  # type: ignore[import-untyped]
+from pyproj import Transformer
 from shapely.strtree import STRtree
 
 from chilefuego.logging_utils import get_logger, log_event
 
 logger = get_logger(__name__)
 
-NUBLE_BBOX_WGS84 = (-73.0, -37.3, -70.9, -35.9)  # minx, miny, maxx, maxy
 MAJOR_HIGHWAYS = {
     "motorway", "motorway_link",
     "trunk", "trunk_link",
@@ -39,6 +39,7 @@ def extract_osm_road_features(
     pbf_path: Path = Path("data/raw/osm/chile-latest.osm.pbf"),
     grid_path: Path = Path("data/processed/grid_catalog.parquet"),
     out_path: Path = Path("data/processed/osm_road_features_1km.parquet"),
+    buffer_m: float = 10000.0,
 ) -> tuple[pl.DataFrame, float, float]:
     """Extrae características de distancia y densidad vial por celda de 1 km.
 
@@ -47,7 +48,7 @@ def extract_osm_road_features(
     tracemalloc.start()
     t0 = time.time()
 
-    # 1. Cargar celdas de Ñuble
+    # 1. Cargar celdas de Ñuble y calcular BBox dinámico + 10 km de buffer (E6)
     grid_df = pl.read_parquet(grid_path)
     nuble_cells = grid_df.filter(pl.col("in_nuble")).select(["cell_id", "centroid_x", "centroid_y"])
     cell_ids = nuble_cells.get_column("cell_id").to_list()
@@ -55,11 +56,23 @@ def extract_osm_road_features(
     cy = nuble_cells.get_column("centroid_y").to_numpy()
     n_cells = len(cell_ids)
 
-    # 2. Leer líneas dentro de bbox de Ñuble sin cargar todo el país en memoria
+    minx_utm = float(cx.min()) - 500.0 - buffer_m
+    maxx_utm = float(cx.max()) + 500.0 + buffer_m
+    miny_utm = float(cy.min()) - 500.0 - buffer_m
+    maxy_utm = float(cy.max()) + 500.0 + buffer_m
+
+    trans = Transformer.from_crs("EPSG:32719", "EPSG:4326", always_xy=True)
+    lons, lats = trans.transform(
+        [minx_utm, minx_utm, maxx_utm, maxx_utm],
+        [miny_utm, maxy_utm, miny_utm, maxy_utm],
+    )
+    bbox_wgs84 = (min(lons) - 0.01, min(lats) - 0.01, max(lons) + 0.01, max(lats) + 0.01)
+
+    # 2. Leer líneas dentro de bbox de Ñuble + 10km sin cargar todo el país en memoria
     lines_gdf = pyogrio.read_dataframe(
         pbf_path,
         layer="lines",
-        bbox=NUBLE_BBOX_WGS84,
+        bbox=bbox_wgs84,
         columns=["highway"],
     )
 
@@ -70,6 +83,9 @@ def extract_osm_road_features(
     # Reproyectar a EPSG:32719 (coordenadas en metros)
     roads_utm = roads.to_crs(epsg=32719)
     del roads
+
+    # Filtrar geometrías que intersecan la caja UTM con buffer
+    roads_utm = roads_utm.cx[minx_utm:maxx_utm, miny_utm:maxy_utm].copy()
 
     # Separar red completa y red mayor (primarios, secundarios, troncales)
     major_mask = roads_utm["highway"].isin(MAJOR_HIGHWAYS)
