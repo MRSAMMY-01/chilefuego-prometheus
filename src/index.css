@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/* Scrollbars tácticos oscuros (elimina la barra blanca por defecto) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 #09090b;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #f97316;
+}
+
+/* Estilos para popups y marcadores 3D de MapLibre */
+.maplibregl-popup-content {
+  background: rgba(9, 9, 11, 0.94) !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px);
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgba(9, 9, 11, 0.94) !important;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(9, 9, 11, 0.65) !important;
+  color: #a1a1aa !important;
+  font-size: 10px !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: #d4d4d8 !important;
+}
+
+/* Resplandor radial para el punto de ignición 3D */
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.65;
+  }
+}
+
+.ignition-flare {
+  animation: pulseGlow 2.2s infinite ease-in-out;
+}

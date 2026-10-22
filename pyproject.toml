@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chilefuego"
+version = "0.1.0"
+description = "Pipeline geoespacial y modelo calibrado de riesgo de ignición para la Región de Ñuble, Chile"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.0",
+    "pandera>=0.20.0",
+    "polars>=1.0.0",
+    "pyarrow>=16.0.0",
+    "pydantic>=2.7.0",
+    "pyproj>=3.6.0",
+    "pyyaml>=6.0.1",
+    "scikit-learn>=1.5.0",
+    "shapely>=2.0.4",
+    "cdsapi>=0.7.7",
+    "xarray>=2024.0.0",
+    "netCDF4>=1.7.0",
+    "xclim==0.62.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10.0",
+    "pytest>=8.2.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.5.0",
+    "types-PyYAML>=6.0.12",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["chilefuego*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src/chilefuego", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+packages = ["chilefuego"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pandera.*",
+    "pyarrow.*",
+    "scipy.*",
+    "sklearn.*",
+    "shapely.*",
+    "cdsapi.*",
+    "xarray.*",
+    "netCDF4.*",
+    "xclim.*",
+    "rasterio.*",
+    "pandas.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --cov=src/chilefuego/labels --cov=src/chilefuego/ingest --cov-report=term-missing"

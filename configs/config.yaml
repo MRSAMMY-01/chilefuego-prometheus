@@ -1,0 +1,105 @@
+# ==============================================================================
+# CHILEFUEGO ML — CONFIGURACIÓN CENTRALIZADA (Fase 0, Fase 1 y Fase 1.5)
+# Validado estrictamente mediante Pydantic en src/chilefuego/config.py
+# ==============================================================================
+
+project:
+  name: "chilefuego-ignition-risk"
+  version: "0.1.5"
+  random_seed: 42
+  timezone: "America/Santiago"
+
+geospatial:
+  work_crs: "EPSG:32719"      # WGS 84 / UTM zone 19S (métrico)
+  geographic_crs: "EPSG:4326" # WGS 84 (lat/lon para FIRMS y frontend)
+  cell_size_m: 1000           # F2.1: resolución espacial 1 km (decisión Fase 1.9 por V2/V6)
+  reference_area_km2: 13178.0 # Superficie oficial de referencia Región de Ñuble (km²)
+  area_tolerance_rel: 0.05    # Tolerancia máxima permitida (±5%) para área in_nuble (T7)
+  # Bounding Box oficial Región de Ñuble en EPSG:4326
+  bbox_wgs84:
+    west: -72.90
+    south: -37.35
+    east: -71.00
+    north: -36.00
+
+temporal:
+  start_year: 2012
+  end_year: 2025              # Serie histórica completa S-NPP (2012-01-20 a 2025-12-31)
+  start_date: "2012-01-20"
+  end_date: "2025-12-31"
+
+paths:
+  raw_dir: "data/raw"
+  interim_dir: "data/interim"
+  processed_dir: "data/processed"
+  dpa_geojson_path: "data/raw/boundaries/dpa_nuble.geojson"
+  conaf_geojson_path: "data/raw/conaf/conaf_nuble_historico.geojson"
+  manifest_path: "data/raw/firms_archive/manifest.json"
+  grid_catalog_path: "data/processed/grid_catalog.parquet"
+  labels_path: "data/processed/labels.parquet"
+  ignitions_conaf_path: "data/processed/ignitions_conaf.parquet"
+  excluded_cell_days_path: "data/processed/excluded_cell_days.parquet"
+  report_path: "data/processed/phase1_ignition_report.md"
+
+firms:
+  base_url: "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
+  env_api_key_var: "FIRMS_MAP_KEY"
+  # T3: Serie principal homogénea compuesta únicamente por VIIRS S-NPP (2012-01-20 a 2025-12-31).
+  # NOAA-20 se mantiene separado para análisis de sensibilidad (disponible desde 2018-04-01).
+  primary_sources:
+    - "VIIRS_SNPP_SP"
+  sensitivity_sources:
+    - "VIIRS_NOAA20_SP"
+  history_sources:
+    - "VIIRS_SNPP_SP"
+    - "VIIRS_NOAA20_SP"
+  live_sources:
+    - "VIIRS_SNPP_NRT"
+    - "VIIRS_NOAA20_NRT"
+  window_days: 5              # Límite estricto [1..5] del endpoint /api/area/csv de FIRMS
+  max_retries: 4
+  backoff_base_seconds: 1.5
+  timeout_seconds: 30.0
+
+filtering:
+  # VIIRS reporta niveles de confianza categóricos: 'l' (low), 'n' (nominal), 'h' (high).
+  allowed_confidences:
+    - "n"
+    - "h"
+    - "nominal"
+    - "high"
+  # T4: En productos estándar NASA FIRMS (SP), type==0 corresponde a fuego de vegetación
+  # presunto; type==1 volcán activo, type==2 otra fuente estática terrestre, type==3 offshore.
+  allowed_types:
+    - 0
+  # C3/T4: Exclusión circular métrica (radio 4.000 m en EPSG:32719) centrada en el cráter activo
+  # del Complejo Volcánico Nevados de Chillán (-36.863, -71.377).
+  exclusion_zones:
+    - name: "Crater_Volcanico_Nevados_de_Chillan_4km"
+      center_lon: -71.377
+      center_lat: -36.863
+      radius_m: 4000.0
+  # C3/T4: Detección de fuentes térmicas estacionarias (plantas industriales / celulosas / aserraderos).
+  stationary_source:
+    min_distinct_days: 12
+    min_distinct_months: 9
+    flag_winter_activity: true
+    winter_months: [6, 7, 8]
+    min_winter_days: 1
+
+clustering:
+  # T9: Convención operativa fijada en 2.500 m × 72 h (min_samples=1).
+  # Nota metodológica: el conteo de clusters decrece de forma monótona al aumentar
+  # spatial_eps_m y temporal_eps_hours (sin meseta física); se adopta 2500 m × 72 h
+  # como convención de dominio para frentes forestales y rebrotes.
+  spatial_eps_m: 2500.0
+  temporal_eps_hours: 72.0
+  min_samples: 1
+  max_cluster_duration_hours: 240.0
+  max_cluster_radius_m: 15000.0
+  # T5: Regla candidata por defecto para clasificar event_class ('wildfire_candidate' vs 'small_or_agri')
+  # Opciones auditadas en T5: 'rule_a', 'rule_b', 'rule_c' (pendiente confirmación final del usuario).
+  event_class_rule: "rule_b"
+  # T8: Parámetros de huella de exclusión de negativos (extensión + 2,5 km; primera a última + 72 h)
+  exclusion_buffer_m: 2500.0
+  exclusion_post_hours: 72.0
