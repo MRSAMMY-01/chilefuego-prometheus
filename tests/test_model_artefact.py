@@ -77,6 +77,8 @@ def test_clean_process_inference_reproducibility() -> None:
     np.save(tmp_npy, X_sample)
 
     script_clean = """
+import sys
+sys.path.insert(0, 'src')
 import numpy as np
 import xgboost as xgb
 from chilefuego.models.xgboost_experiment import PRUNED_25_FEATURES
