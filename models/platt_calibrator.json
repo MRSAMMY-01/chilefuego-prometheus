@@ -1,0 +1,7 @@
+{
+  "method": "platt_scaling",
+  "slope": 0.996033251285553,
+  "intercept": -0.08898188173770905,
+  "formula": "P(y=1 | s) = 1 / (1 + exp(-(slope * logit(s) + intercept)))",
+  "date_trained": "2026-10-22"
+}

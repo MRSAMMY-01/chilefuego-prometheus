@@ -1,0 +1,39 @@
+{
+  "system": "Relative Risk Classification (Experimental)",
+  "classes": {
+    "Bajo": {
+      "percentile_range": "[0, 80)",
+      "score_range": [
+        0.0,
+        0.0002701342455111444
+      ]
+    },
+    "Moderado": {
+      "percentile_range": "[80, 95)",
+      "score_range": [
+        0.0002701342455111444,
+        0.0009634687448851764
+      ]
+    },
+    "Alto": {
+      "percentile_range": "[95, 99)",
+      "score_range": [
+        0.0009634687448851764,
+        0.0029139863327145576
+      ]
+    },
+    "Extremo": {
+      "percentile_range": "[99, 100]",
+      "score_range": [
+        0.0029139863327145576,
+        1.0
+      ]
+    }
+  },
+  "thresholds": {
+    "p80": 0.0002701342455111444,
+    "p95": 0.0009634687448851764,
+    "p99": 0.0029139863327145576
+  },
+  "note": "Clasificaci\u00f3n experimental de riesgo relativo espacial-temporal. NO es un disparador autom\u00e1tico de alerta comunal."
+}

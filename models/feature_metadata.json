@@ -1,0 +1,147 @@
+{
+  "model_version": "v1.0.0-pruned",
+  "n_features": 25,
+  "features": [
+    {
+      "name": "elevation_mean",
+      "dtype": "float32",
+      "order": 0
+    },
+    {
+      "name": "slope_mean",
+      "dtype": "float32",
+      "order": 1
+    },
+    {
+      "name": "northness",
+      "dtype": "float32",
+      "order": 2
+    },
+    {
+      "name": "eastness",
+      "dtype": "float32",
+      "order": 3
+    },
+    {
+      "name": "dist_road_nearest_m",
+      "dtype": "float32",
+      "order": 4
+    },
+    {
+      "name": "dist_primary_sec_trunk_m",
+      "dtype": "float32",
+      "order": 5
+    },
+    {
+      "name": "road_density_km2",
+      "dtype": "float32",
+      "order": 6
+    },
+    {
+      "name": "tree_cover_frac",
+      "dtype": "float32",
+      "order": 7
+    },
+    {
+      "name": "shrub_cover_frac",
+      "dtype": "float32",
+      "order": 8
+    },
+    {
+      "name": "grass_cover_frac",
+      "dtype": "float32",
+      "order": 9
+    },
+    {
+      "name": "crop_cover_frac",
+      "dtype": "float32",
+      "order": 10
+    },
+    {
+      "name": "built_cover_frac",
+      "dtype": "float32",
+      "order": 11
+    },
+    {
+      "name": "dist_built_nearest_m",
+      "dtype": "float32",
+      "order": 12
+    },
+    {
+      "name": "prior_density",
+      "dtype": "float32",
+      "order": 13
+    },
+    {
+      "name": "temp_noon_c",
+      "dtype": "float32",
+      "order": 14
+    },
+    {
+      "name": "vpd_noon_kpa",
+      "dtype": "float32",
+      "order": 15
+    },
+    {
+      "name": "rain_24h_noon_mm",
+      "dtype": "float32",
+      "order": 16
+    },
+    {
+      "name": "rh_noon_pct",
+      "dtype": "float32",
+      "order": 17
+    },
+    {
+      "name": "wind_noon_kmh",
+      "dtype": "float32",
+      "order": 18
+    },
+    {
+      "name": "fwi",
+      "dtype": "float32",
+      "order": 19
+    },
+    {
+      "name": "isi",
+      "dtype": "float32",
+      "order": 20
+    },
+    {
+      "name": "bui",
+      "dtype": "float32",
+      "order": 21
+    },
+    {
+      "name": "ffmc",
+      "dtype": "float32",
+      "order": 22
+    },
+    {
+      "name": "dmc",
+      "dtype": "float32",
+      "order": 23
+    },
+    {
+      "name": "dc",
+      "dtype": "float32",
+      "order": 24
+    }
+  ],
+  "dropped_features": [
+    "pop_density_1km",
+    "temp_lag1",
+    "temp_roll3_mean",
+    "temp_roll3_max",
+    "temp_roll7_mean",
+    "temp_roll7_max",
+    "vpd_lag1",
+    "vpd_roll3_mean",
+    "vpd_roll3_max",
+    "vpd_roll7_mean",
+    "vpd_roll7_max",
+    "rain_acc7",
+    "rain_acc30",
+    "days_since_rain25"
+  ]
+}

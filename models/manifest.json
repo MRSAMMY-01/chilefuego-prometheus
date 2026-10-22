@@ -1,0 +1,25 @@
+{
+  "created_at": "2026-10-22T22:42:39Z",
+  "artefacts": {
+    "chilefuego_xgb_pruned_v1.json": {
+      "sha256": "6aabd7e30fddcf75fdf8c191f0ed20dcf90bd21a73a6bdcc26fcddf868f1bf98",
+      "size_bytes": 392650
+    },
+    "chilefuego_xgb_pruned_v1.ubj": {
+      "sha256": "250741f8a91b488accc31c997f6bf8e53a399f1467511bb828f6e5d4879e97d7",
+      "size_bytes": 291198
+    },
+    "platt_calibrator.json": {
+      "sha256": "335b2f157dd1db7c753be20c105dd03c668acdba1c94d33373118178606cdff9",
+      "size_bytes": 212
+    },
+    "feature_metadata.json": {
+      "sha256": "419950556d9c50325cd962280174225fc0d08646c8ada891f66aa15e3c531ea6",
+      "size_bytes": 2701
+    },
+    "risk_thresholds.json": {
+      "sha256": "08eb839c7fd18a2145e224c4988f1ced6c9041cb0ec166191708dc9eeb6fec60",
+      "size_bytes": 955
+    }
+  }
+}
