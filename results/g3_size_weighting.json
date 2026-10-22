@@ -1,0 +1,89 @@
+{
+  "costs_all_surfaces": {
+    "unweighted": {
+      "rec1": 20.93162654861211,
+      "rec5": 48.253452203763786,
+      "pr_auc": 0.0014781339276874709
+    },
+    "weighted": {
+      "rec1": 20.455342753176918,
+      "rec5": 47.43578108636091,
+      "pr_auc": 0.001421769404601209
+    },
+    "cost_penalty": {
+      "rec1": 0.47628379543519017,
+      "rec5": 0.8176711174028739,
+      "pr_auc": 5.636452308626196e-05
+    }
+  },
+  "surfaces_ge_1ha": {
+    "unweighted": {
+      "rec1": 15.937633021486564,
+      "rec5": 39.84434624735495
+    },
+    "weighted": {
+      "rec1": 17.67790024587028,
+      "rec5": 41.59302377993653
+    },
+    "delta": {
+      "rec1": 1.7402672243837163,
+      "rec5": 1.7486775325815813
+    }
+  },
+  "surfaces_ge_10ha": {
+    "unweighted": {
+      "rec1": 11.433003994298536,
+      "rec5": 32.74273469680465
+    },
+    "weighted": {
+      "rec1": 15.724630696026578,
+      "rec5": 38.57336345322616
+    },
+    "delta": {
+      "rec1": 4.291626701728042,
+      "rec5": 5.830628756421504
+    }
+  },
+  "event_bootstrap_255": {
+    "delta_hits_vs_unweighted_top1": {
+      "mean": 10.8915,
+      "ci95": [
+        4.0,
+        19.0
+      ],
+      "excludes_zero": true
+    },
+    "delta_hits_vs_unweighted_top5": {
+      "mean": 17.1485,
+      "ci95": [
+        9.0,
+        26.0
+      ],
+      "excludes_zero": true
+    },
+    "delta_hits_vs_baseline_top1": {
+      "mean": 7.779,
+      "ci95": [
+        -2.0,
+        18.0
+      ],
+      "excludes_zero": false
+    },
+    "delta_hits_vs_baseline_top5": {
+      "mean": 8.157,
+      "ci95": [
+        -5.0,
+        21.0
+      ],
+      "excludes_zero": false
+    }
+  },
+  "decision_rule": {
+    "rule": "Adoptar solo si costo global < 1.0 pp y el IC 95% excluye cero",
+    "cost_global_rec1_pp": 0.47628379543519017,
+    "cost_global_rec5_pp": 0.8176711174028739,
+    "rule_applies_top1": true,
+    "rule_applies_top5": true,
+    "recommendation": "Adoptar ponderaci\u00f3n por tama\u00f1o como variante recomendada para grandes incendios"
+  }
+}
