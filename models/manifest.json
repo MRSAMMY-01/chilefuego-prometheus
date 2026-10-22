@@ -10,16 +10,16 @@
       "size_bytes": 291198
     },
     "platt_calibrator.json": {
-      "sha256": "335b2f157dd1db7c753be20c105dd03c668acdba1c94d33373118178606cdff9",
-      "size_bytes": 212
+      "sha256": "7532b57da76ff8f13019cd6af36cf0bfc7cbc552a84f0a27daeaae3f1a2f1b57",
+      "size_bytes": 253
     },
     "feature_metadata.json": {
       "sha256": "419950556d9c50325cd962280174225fc0d08646c8ada891f66aa15e3c531ea6",
       "size_bytes": 2701
     },
     "risk_thresholds.json": {
-      "sha256": "08eb839c7fd18a2145e224c4988f1ced6c9041cb0ec166191708dc9eeb6fec60",
-      "size_bytes": 955
+      "sha256": "0863043b384ac2dc94aa4faf226f9bce07085b132907b48af5b82ef908839421",
+      "size_bytes": 965
     }
   }
 }

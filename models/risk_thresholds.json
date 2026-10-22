@@ -1,39 +1,44 @@
 {
   "system": "Relative Risk Classification (Experimental)",
+  "calibrated": true,
   "classes": {
     "Bajo": {
       "percentile_range": "[0, 80)",
-      "score_range": [
+      "prob_range": [
         0.0,
-        0.0002701342455111444
+        0.00012038993736496195
       ]
     },
     "Moderado": {
       "percentile_range": "[80, 95)",
-      "score_range": [
-        0.0002701342455111444,
-        0.0009634687448851764
+      "prob_range": [
+        0.00012038993736496195,
+        0.00041894614696502686
       ]
     },
     "Alto": {
       "percentile_range": "[95, 99)",
-      "score_range": [
-        0.0009634687448851764,
-        0.0029139863327145576
+      "prob_range": [
+        0.00041894614696502686,
+        0.0012019393034279346
       ]
     },
     "Extremo": {
       "percentile_range": "[99, 100]",
-      "score_range": [
-        0.0029139863327145576,
+      "prob_range": [
+        0.0012019393034279346,
         1.0
       ]
     }
   },
   "thresholds": {
-    "p80": 0.0002701342455111444,
-    "p95": 0.0009634687448851764,
-    "p99": 0.0029139863327145576
+    "p80": 0.00012038993736496195,
+    "p95": 0.00041894614696502686,
+    "p99": 0.0012019393034279346
   },
-  "note": "Clasificaci\u00f3n experimental de riesgo relativo espacial-temporal. NO es un disparador autom\u00e1tico de alerta comunal."
+  "rates_per_100k": {
+    "p80": 12.038993736496195,
+    "p95": 41.894614696502686,
+    "p99": 120.19393034279346
+  }
 }

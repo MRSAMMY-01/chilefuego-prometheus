@@ -1,7 +1,8 @@
 {
   "method": "platt_scaling",
-  "slope": 0.996033251285553,
-  "intercept": -0.08898188173770905,
+  "slope": 0.9959397315979004,
+  "intercept": -0.09002228081226349,
   "formula": "P(y=1 | s) = 1 / (1 + exp(-(slope * logit(s) + intercept)))",
-  "date_trained": "2026-10-22"
+  "fitted_on": "out_of_fold_loso_predictions",
+  "date": "2026-10-22"
 }
