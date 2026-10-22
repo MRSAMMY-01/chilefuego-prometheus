@@ -89,6 +89,11 @@ WEATHER_LAGS_ROLLING = [
 
 ALL_39_FEATURES = STATIC_FEATURES + PRIOR_FEATURE + WEATHER_INSTANT_FWI + WEATHER_LAGS_ROLLING
 
+PRUNED_25_FEATURES = [
+    f for f in ALL_39_FEATURES
+    if f != "pop_density_1km" and f not in WEATHER_LAGS_ROLLING
+]
+
 
 @dataclass
 class EvalFoldResult:
