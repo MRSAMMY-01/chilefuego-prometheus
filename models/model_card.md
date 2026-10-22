@@ -39,8 +39,14 @@ El modelo podado final descarta densidad poblacional censal (`pop_density_1km`) 
   - **Recall en Top 5% de celdas-día:** $\sim 44\%$ de las igniciones capturadas en el 5% de mayor score.
   - **Incendios $\ge 10$ ha:** Mayor captura de eventos de gran magnitud en ventanas de alto score.
 
-## 6. Limitaciones Conocidas y Sesgos (Limitations & Biases)
+## 6. Limitaciones Conocidas, Sesgos y Desfase de Fuentes (Limitations & Biases)
 - **Sesgo de Detección CONAF:** Registros terrestres favorecen zonas habitadas, transitadas o con visibilidad desde caminos, mientras que zonas de alta cordillera despobladas tienen menor probabilidad de reporte temprano.
 - **Efecto de Supresión:** Los registros CONAF reflejan igniciones reportadas, las cuales están afectadas por intervenciones de combate inicial que pueden haber evitado la propagación de ciertos eventos.
 - **Independencia Espacial Intradiaria:** Días de viento extremo sincrónico (ej. evento Puelche) generan correlaciones espaciales en toda la región, cuantificadas en la evaluación mediante bootstrap por bloques de días.
 - **Dominio Geográfico:** El modelo está entrenado y ajustado exclusivamente para la Región de Ñuble, Chile (EPSG:32719). No debe aplicarse a otras regiones sin un recalibrado previo.
+- **Desfase de Fuentes y Latencia Operativa:**
+  - ERA5-Land tiene una latencia de publicación de ~5 días (ERA5T) y 60-90 días (ERA5 consolidado), lo que impide su uso para inferencia el mismo día D en operaciones de combate activo.
+  - La transición a pronósticos numéricos del tiempo (NWP, ej. ECMWF IFS, GFS, WRF DMC o Open-Meteo) requiere sincronización estricta de la precipitación acumulada de 24 h a las 12:00 CLT y corrección de sesgo local (especialmente en humedad relativa mínima y vientos catabáticos andinos).
+  - Dado que los códigos de humedad del FWI (DMC y DC) retienen memoria biológica y de suelo de hasta 52 días, la inferencia con NWP debe encadenarse sobre el estado continuo previo sin reiniciar los códigos a valores por defecto.
+- **Nota Contractual de Cierre sobre Conteos 444/409:** El año forestal/agronómico de CONAF corta al 1 de julio. 28 eventos ocurridos en junio de 2017 (temporada 2016_17) fueron clasificados por año calendario en 2017_18 en una versión preliminar de análisis (sumando 444 en vez de 416). Similarmente, 28 eventos invernales se transfirieron a 2023_24 en lugar de 2024_25 (reportando 409 en vez de 437). El total del panel se mantiene estrictamente invariante en 3.237 positivos. Bajo el corte oficial del 1 de julio (`season_from_date_expr`), los conteos canónicos son **2017_18 = 416** y **2024_25 = 437**. Asunto resuelto y blindado mediante test de regresión.
+

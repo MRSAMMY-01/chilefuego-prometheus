@@ -1,0 +1,36 @@
+{
+  "contract_version": "1.0.0",
+  "inputs_noon_standard": {
+    "time_utc": "15:00 UTC",
+    "time_local_clt": "12:00 CLT (11:00 CLST en horario de invierno)",
+    "observation_window_rain24h": "D-1 12:00 CLT a D 12:00 CLT"
+  },
+  "spatial_grid": {
+    "projection": "EPSG:32719 (WGS 84 / UTM zone 19S)",
+    "resolution_m": 1000,
+    "n_cells_nuble": 13108,
+    "n_era5_nodes": 399,
+    "mapping_method": "KDTree Euclidean Nearest Neighbor (Centroid to ERA5 grid node)"
+  },
+  "sources_and_latency": {
+    "era5_land_reanalysis": {
+      "role": "Entrenamiento hist\u00f3rico, benchmarking y rean\u00e1lisis diagn\u00f3stico",
+      "latency_days": "5 d\u00edas (ERA5T) a 60-90 d\u00edas (ERA5 consolidado)",
+      "suitability_for_realtime": "Inadecuado para despacho operativo el mismo d\u00eda D"
+    },
+    "nwp_forecast_operational": {
+      "role": "Inferencia operativa en d\u00eda D y proyecci\u00f3n prospectiva (D+1, D+2)",
+      "candidate_models": [
+        "ECMWF IFS (0.1\u00b0)",
+        "GFS (0.25\u00b0)",
+        "WRF Direcci\u00f3n Meteorol\u00f3gica de Chile (3 km)",
+        "Open-Meteo"
+      ],
+      "required_corrections": [
+        "Alineaci\u00f3n horaria estricta de la lluvia acumulada a las 12:00 CLT (no a 00:00 UTC)",
+        "Correcci\u00f3n de sesgo local en humedad relativa m\u00ednima y rachas de viento andino (Puelche)",
+        "Conservaci\u00f3n de memoria continua de c\u00f3digos FWI (DC tiene memoria de ~52 d\u00edas; encadenar NWP sobre el estado previo sin resetear)"
+      ]
+    }
+  }
+}
