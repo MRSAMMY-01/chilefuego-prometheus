@@ -16,7 +16,6 @@ from datetime import date
 
 import polars as pl
 import pytest
-
 from chilefuego.config import load_config
 from chilefuego.labels.panel import (
     DATED_SEASONS,
