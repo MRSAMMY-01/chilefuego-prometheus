@@ -6,6 +6,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
+
 import pyogrio
 import rasterio
 
@@ -65,8 +66,8 @@ def verify_all() -> None:
         with rasterio.open(p) as src:
             block_count = 0
             # Iterar sobre las ventanas/bloques del archivo
-            for ji, window in src.block_windows(1):
-                block_data = src.read(1, window=window)
+            for _ji, window in src.block_windows(1):
+                src.read(1, window=window)
                 block_count += 1
             print(f"[{p.name}] Leídos exitosamente {block_count} bloques ({src.width}x{src.height} px, {src.crs}) en {time.time()-t0:.2f} s. 0 errores.")
 
@@ -79,11 +80,10 @@ def verify_all() -> None:
     print(f"PBF Capas: lines={info_lines['features']:,} features, points={info_points['features']:,} features")
     
     # Recorrido iterativo por chunks para no desbordar RAM
-    n_lines_read = 0
-    for chunk in pyogrio.read_dataframe(pbf_path, layer="lines", columns=["highway"], read_geometry=False, max_features=None, batch_size=100000):
+    for _chunk in pyogrio.read_dataframe(pbf_path, layer="lines", columns=["highway"], read_geometry=False, max_features=None, batch_size=100000):
         # pyogrio read_dataframe returns dataframe directly or if batch_size isn't supported, returns df
         pass
-    print(f"PBF verificado hasta el final sin corrupción.")
+    print("PBF verificado hasta el final sin corrupción.")
 
     # 4. Actualizar manifests
     osm_manifest = {

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import polars as pl
-from pyproj import Transformer
-
 from chilefuego.features.osm import extract_osm_road_features
+from pyproj import Transformer
 
 if __name__ == "__main__":
     df, dt, mem = extract_osm_road_features()

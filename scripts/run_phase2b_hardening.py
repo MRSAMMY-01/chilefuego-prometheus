@@ -21,14 +21,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 import psutil
-from pyproj import Transformer
-from scipy.spatial import cKDTree
-from sklearn.calibration import calibration_curve
-from sklearn.isotonic import IsotonicRegression
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, brier_score_loss
 import xgboost as xgb
-
 from chilefuego.config import load_config
 from chilefuego.labels.panel import (
     DATED_SEASONS,
@@ -38,9 +31,14 @@ from chilefuego.labels.panel import (
 from chilefuego.models.xgboost_experiment import (
     ALL_39_FEATURES,
     PRIOR_FEATURE,
-    STATIC_FEATURES,
     WEATHER_LAGS_ROLLING,
 )
+from pyproj import Transformer
+from scipy.spatial import cKDTree
+from sklearn.calibration import calibration_curve
+from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import average_precision_score, brier_score_loss
 
 # Grupos de covariables para E2
 GROUP_DEM = ["elevation_mean", "slope_mean", "northness", "eastness"]
@@ -278,7 +276,6 @@ def run_full_hardening() -> dict[str, Any]:
         dtest = xgb.DMatrix(X_test_mat, feature_names=ALL_39_FEATURES)
         del fold_panel  # Liberar memoria
 
-        xgb_scores_seed42: np.ndarray | None = None
 
         for seed_val in [42, 43, 44, 45, 46]:
             dtrain = xgb.DMatrix(X_fit, label=y_fit, weight=w_fit, feature_names=ALL_39_FEATURES)
@@ -307,7 +304,6 @@ def run_full_hardening() -> dict[str, Any]:
 
             if seed_val == 42:
                 xgb_seed42_metrics.append(m_s)
-                xgb_scores_seed42 = scores_s
                 all_scores_for_risk_tiers.append(scores_s)
                 all_y_for_risk_tiers.append(y_test)
 
@@ -385,7 +381,6 @@ def run_full_hardening() -> dict[str, Any]:
 
     # E5: VALIDACIÓN HACIA ADELANTE (FORWARD WALK)
     print("\n--- Ejecutando E5: Validación hacia adelante (Train 2017-2022 -> Test 2022-2025) ---")
-    forward_train_seasons = ["2017_18", "2019_20", "2020_21", "2021_22"]
     forward_val_season = "2021_22"
     forward_fit_seasons = ["2017_18", "2019_20", "2020_21"]
     forward_test_seasons = ["2022_23", "2023_24", "2024_25"]

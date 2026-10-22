@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+
 import numpy as np
 
+
 def main() -> None:
-    with open("reports/phase2b_hardening_results.json", "r", encoding="utf-8") as f:
+    with open("reports/phase2b_hardening_results.json", encoding="utf-8") as f:
         d = json.load(f)
 
     b_list = d["baseline_metrics"]
@@ -14,7 +16,7 @@ def main() -> None:
 
     print("=== E1: TABLA RECONCILIADA (MISMA FUNCION DE EVALUACION) ===")
     print("Temporada | N | Base PR-AUC | Base Lift | Base Rec@1% | Base Rec@5% | Base Rec1>=1ha | Base Rec1>=10ha | Base Top10%D || XGB PR-AUC | XGB Lift | XGB Rec@1% | XGB Rec@5% | XGB Rec1>=1ha | XGB Rec1>=10ha | XGB Top10%D")
-    for b, x in zip(b_list, x_list):
+    for b, x in zip(b_list, x_list, strict=False):
         print(
             f"{b['season']} | {b['n_pos']} | {b['pr_auc']:.6e} | {b['lift']:5.2f}x | {b['rec1_all']*100:5.2f}% | {b['rec5_all']*100:5.2f}% | {b['rec1_1ha']*100:5.2f}% | {b['rec1_10ha']*100:5.2f}% | {b['top10_model_days']:5.2f}% || "
             f"{x['pr_auc']:.6e} | {x['lift']:5.2f}x | {x['rec1_all']*100:5.2f}% | {x['rec5_all']*100:5.2f}% | {x['rec1_1ha']*100:5.2f}% | {x['rec1_10ha']*100:5.2f}% | {x['top10_model_days']:5.2f}%"
@@ -45,7 +47,7 @@ def main() -> None:
     seeds = ["42", "43", "44", "45", "46"]
     for i, s_name in enumerate([b['season'] for b in b_list]):
         s_praucs = [d["e2_seed_metrics"][sd][i]["pr_auc"] for sd in seeds]
-        s_lifts = [d["e2_seed_metrics"][sd][i]["lift"] for sd in seeds]
+        [d["e2_seed_metrics"][sd][i]["lift"] for sd in seeds]
         s_rec1s = [d["e2_seed_metrics"][sd][i]["rec1_all"] * 100 for sd in seeds]
         ci_p = d["e2_bootstrap_cis"][s_name]["ci_prauc"]
         ci_r = d["e2_bootstrap_cis"][s_name]["ci_rec1"]
@@ -80,7 +82,7 @@ def main() -> None:
     # Tabla de fiabilidad tramos por 100k
     print("\n--- Fiabilidad Platt (Igniciones por 100k celdas-dia, Temporada 2024_25) ---")
     bins_24_25 = d["e4_reliability_bins"][-1]
-    for p, o in zip(bins_24_25["pred_per_100k"], bins_24_25["obs_per_100k"]):
+    for p, o in zip(bins_24_25["pred_per_100k"], bins_24_25["obs_per_100k"], strict=False):
         print(f"Predicho: {p:6.1f} / 100k | Observado: {o:6.1f} / 100k")
 
     # E5 Forward walk
