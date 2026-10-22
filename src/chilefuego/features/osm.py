@@ -84,9 +84,6 @@ def extract_osm_road_features(
     roads_utm = roads.to_crs(epsg=32719)
     del roads
 
-    # Filtrar geometrías que intersecan la caja UTM con buffer
-    roads_utm = roads_utm.cx[minx_utm:maxx_utm, miny_utm:maxy_utm].copy()
-
     # Separar red completa y red mayor (primarios, secundarios, troncales)
     major_mask = roads_utm["highway"].isin(MAJOR_HIGHWAYS)
     major_roads_utm = roads_utm[major_mask].copy()
