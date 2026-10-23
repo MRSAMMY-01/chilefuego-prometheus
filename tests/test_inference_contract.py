@@ -106,3 +106,43 @@ def test_operational_contract_documentation() -> None:
     assert "era5_land_reanalysis" in doc["sources_and_latency"]
     assert "nwp_forecast_operational" in doc["sources_and_latency"]
     assert doc["spatial_grid"]["n_cells_nuble"] == 13108
+    assert "16:00 UTC" in doc["inputs_noon_standard"]["time_utc"]
+
+
+def test_training_inference_feature_parity_20_pairs() -> None:
+    """Verifica paridad numérica estricta (<1e-5) entre tabla de entrenamiento e inferencia (H3)."""
+    from pyproj import Transformer
+    from scipy.spatial import cKDTree
+
+    train_df = pl.read_parquet("data/processed/training_sample_phase2b.parquet")
+    sample_df = train_df.sample(20, seed=42)
+
+    static_df = pl.read_parquet("data/processed/static_features_1km.parquet")
+    prior_df = pl.read_parquet("data/processed/prior_density_by_cell_season.parquet")
+    weather_df = pl.read_parquet("data/processed/era5_land_extended_weather_nodes.parquet")
+    grid_df = pl.read_parquet("data/processed/grid_catalog.parquet")
+
+    nuble_cells = grid_df.filter(pl.col("in_nuble"))
+    cx = nuble_cells["centroid_x"].to_numpy()
+    cy = nuble_cells["centroid_y"].to_numpy()
+    cell_ids = nuble_cells["cell_id"].to_list()
+    trans = Transformer.from_crs("EPSG:32719", "EPSG:4326", always_xy=True)
+    clon, clat = trans.transform(cx, cy)
+    u_nodes = weather_df.select(["node_id"]).unique().to_series().to_list()
+    node_coords = np.array([[float(p.split("_")[1]), float(p.split("_")[0])] for p in u_nodes])
+    tree = cKDTree(node_coords)
+    _, node_idxs = tree.query(np.column_stack([clon, clat]), k=1)
+    cell_node_df = pl.DataFrame({"cell_id": cell_ids, "node_id": [u_nodes[idx] for idx in node_idxs]})
+
+    X_train = sample_df.select(PRUNED_25_FEATURES).to_numpy()
+    recomputed_df = InferencePipeline.extract_features_for_sample(
+        sample_df=sample_df,
+        static_df=static_df,
+        prior_df=prior_df,
+        cell_node_df=cell_node_df,
+        weather_df=weather_df,
+    )
+    X_recomputed = recomputed_df.select(PRUNED_25_FEATURES).to_numpy()
+
+    max_diff = float(np.max(np.abs(X_train - X_recomputed)))
+    assert max_diff < 1e-5, f"Discrepancia detectada en features: max_diff = {max_diff}"

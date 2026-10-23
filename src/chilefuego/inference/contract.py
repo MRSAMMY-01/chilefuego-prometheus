@@ -142,15 +142,31 @@ class InferencePipeline:
             "risk_tier": tiers,
         }
 
+    @staticmethod
+    def extract_features_for_sample(
+        sample_df: pl.DataFrame,
+        static_df: pl.DataFrame,
+        prior_df: pl.DataFrame,
+        cell_node_df: pl.DataFrame,
+        weather_df: pl.DataFrame,
+    ) -> pl.DataFrame:
+        """Extrae de manera determinista las 25 variables para una muestra de (cell_id, date, season)."""
+        df = sample_df.select(["cell_id", "date", "season"])
+        df = df.join(static_df, on="cell_id", how="left")
+        df = df.join(prior_df, on=["cell_id", "season"], how="left")
+        df = df.join(cell_node_df, on="cell_id", how="left")
+        df = df.join(weather_df, on=["node_id", "date"], how="left")
+        return df.select(PRUNED_25_FEATURES)
+
 
 def get_operational_contract_documentation() -> dict[str, Any]:
     """Retorna la especificación técnica de desacople entre ERA5-Land y pronósticos NWP."""
     return {
         "contract_version": "1.0.0",
         "inputs_noon_standard": {
-            "time_utc": "15:00 UTC",
-            "time_local_clt": "12:00 CLT (11:00 CLST en horario de invierno)",
-            "observation_window_rain24h": "D-1 12:00 CLT a D 12:00 CLT",
+            "time_utc": "16:00 UTC (12:00 UTC-4, mediodía local estándar)",
+            "time_local_clt": "12:00 CLT estándar (UTC-4)",
+            "observation_window_rain24h": "D-1 16:00 UTC a D 16:00 UTC (12:00 CLT a 12:00 CLT)",
         },
         "spatial_grid": {
             "projection": "EPSG:32719 (WGS 84 / UTM zone 19S)",
