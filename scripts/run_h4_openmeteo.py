@@ -49,6 +49,10 @@ OPEN_METEO_PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/fore
 SEASONS_H4 = ["2023_24", "2024_25"]
 DATE_START = date(2023, 7, 1)
 DATE_END = date(2025, 6, 30)
+SEASONS_RANGES: dict[str, tuple[date, date]] = {
+    "2023_24": (date(2023, 7, 1), date(2024, 6, 30)),
+    "2024_25": (date(2024, 7, 1), date(2025, 6, 30)),
+}
 
 
 def load_nuble_nodes(
@@ -72,9 +76,9 @@ def download_openmeteo_batch(
     lons: list[float],
     start_date: str,
     end_date: str,
-    max_retries: int = 10,
+    max_retries: int = 3,
 ) -> list[dict[str, Any]] | None:
-    """Descarga un lote de coordenadas desde Open-Meteo Previous Model Runs API con reintentos exponenciales."""
+    """Descarga un lote de coordenadas desde Open-Meteo Previous Model Runs API con diagnóstico de errores."""
     lat_param = ",".join(f"{lat:.4f}" for lat in lats)
     lon_param = ",".join(f"{lon:.4f}" for lon in lons)
     hourly_vars = [
@@ -104,31 +108,103 @@ def download_openmeteo_batch(
                     return data
                 return [data]
         except urllib.error.HTTPError as http_err:
+            try:
+                err_body = http_err.read().decode("utf-8", errors="replace")
+            except Exception:
+                err_body = ""
+            try:
+                err_json = json.loads(err_body)
+                reason = str(err_json.get("reason", ""))
+            except Exception:
+                reason = err_body[:200]
+
+            retry_after_hdr = http_err.headers.get("Retry-After")
             if http_err.code == 429:
-                wait_s = 30 * (2**attempt)
                 logger.warning(
-                    f"Rate limit 429 detectado. Pausando {wait_s}s antes de reintentar (intento {attempt + 1}/{max_retries})..."
+                    f"HTTP 429 Too Many Requests | Razón del servidor: '{reason}' | "
+                    f"Retry-After: {retry_after_hdr} (intento {attempt + 1}/{max_retries})"
                 )
-                time.sleep(wait_s)
-            else:
-                logger.error(f"Error HTTP {http_err.code} en descarga: {http_err.reason}")
-                if attempt == max_retries - 1:
+                if "Daily API request limit exceeded" in reason:
                     logger.error(
-                        f"Agotados los {max_retries} intentos tras error HTTP {http_err.code}. Omitiendo lote."
+                        "La cuota diaria de la IP en Open-Meteo está agotada. "
+                        "Deteniendo reintentos (se reinicia a las 00:00 UTC)."
                     )
                     return None
-                time.sleep(10)
+                if retry_after_hdr and retry_after_hdr.isdigit():
+                    wait_s = float(retry_after_hdr) + 1.0
+                else:
+                    wait_s = 15.0 * (attempt + 1)
+                time.sleep(wait_s)
+            else:
+                logger.error(f"Error HTTP {http_err.code} ({http_err.reason}): '{reason}'")
+                if attempt == max_retries - 1:
+                    return None
+                time.sleep(5)
         except Exception as exc:
-            wait_s = min(300, 15 * (2**attempt))
-            logger.warning(
-                f"Excepción en descarga ({exc}). Pausando {wait_s}s (intento {attempt + 1}/{max_retries})..."
-            )
-            time.sleep(wait_s)
+            logger.warning(f"Excepción de conexión ({exc}). Reintentando en 5s...")
+            time.sleep(5)
 
-    logger.error(
-        f"Fallo al descargar lote de {len(lats)} coordenadas tras {max_retries} intentos. Retornando None."
-    )
     return None
+
+
+def validate_cached_forecast_json(path: Path, expected_nodes: int, expected_hours: int) -> bool:
+    """Valida la integridad de un archivo JSON descargado antes de saltarlo."""
+    if not path.exists() or path.stat().st_size < 1000:
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = json.load(f)
+        nodes = content.get("nodes", [])
+        data_list = content.get("data", [])
+        if len(nodes) != expected_nodes or len(data_list) != expected_nodes:
+            return False
+        for node_data in data_list:
+            hourly = node_data.get("hourly", {})
+            times = hourly.get("time", [])
+            if len(times) != expected_hours:
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def run_diagnostic_probe(lat: float = -36.5625, lon: float = -72.0625) -> int:
+    """Sonda mínima de 7 días sobre 1 coordenada para verificar respuesta y límites."""
+    logger.info("=== EJECUTANDO SONDA DE DIAGNÓSTICO HTTP OPEN-METEO ===")
+    logger.info(f"Coordenada de prueba: lat={lat:.4f}, lon={lon:.4f}")
+    logger.info("Periodo: 2024-01-01 a 2024-01-07 (7 días)")
+    logger.info(f"Endpoint: {OPEN_METEO_PREVIOUS_RUNS_URL}")
+    t_start = time.time()
+    res = download_openmeteo_batch(
+        lats=[lat],
+        lons=[lon],
+        start_date="2024-01-01",
+        end_date="2024-01-07",
+        max_retries=1,
+    )
+    elapsed = round(time.time() - t_start, 2)
+    if res and len(res) > 0 and "hourly" in res[0]:
+        hourly = res[0]["hourly"]
+        times = hourly.get("time", [])
+        logger.info(
+            f"SONDA EXITOSA en {elapsed}s: Recibidas {len(times)} horas de pronóstico archivado."
+        )
+        logger.info(f"Variables recibidas: {list(hourly.keys())}")
+        if len(times) >= 3:
+            logger.info("Muestra de datos (primeras 3 horas):")
+            for i in range(3):
+                logger.info(
+                    f"  {times[i]} | Temp={hourly.get('temperature_2m', [None])[i]}°C | "
+                    f"RH={hourly.get('relative_humidity_2m', [None])[i]}% | "
+                    f"Viento={hourly.get('wind_speed_10m', [None])[i]} km/h | "
+                    f"Lluvia={hourly.get('precipitation', [None])[i]} mm"
+                )
+        return 0
+    else:
+        logger.error(
+            f"SONDA FALLIDA en {elapsed}s. Revisa los mensajes anteriores para ver el diagnóstico del servidor."
+        )
+        return 1
 
 
 def fetch_all_nodes_forecasts(
@@ -148,65 +224,82 @@ def fetch_all_nodes_forecasts(
     n_nodes = len(nodes)
     n_batches = (n_nodes + batch_size - 1) // batch_size
     logger.info(
-        f"Iniciando descarga de {n_nodes} nodos en {n_batches} lotes (tamaño lote = {batch_size})..."
+        f"Iniciando descarga de {n_nodes} nodos en {n_batches} lotes por temporada (tamaño lote = {batch_size})..."
     )
 
-    batch_files: list[Path] = []
-    for b_idx in range(n_batches):
-        b_file = raw_dir / f"batch_{b_idx:03d}.json"
-        batch_files.append(b_file)
-        if b_file.exists():
-            logger.info(f"Lote {b_idx + 1}/{n_batches} ya descargado ({b_file.name}). Saltando.")
-            continue
+    batch_tasks: list[tuple[Path, list[str], date, date]] = []
 
-        start_i = b_idx * batch_size
-        end_i = min(start_i + batch_size, n_nodes)
-        batch_nodes = nodes[start_i:end_i]
-        b_lats = [coord_dict[n][0] for n in batch_nodes]
-        b_lons = [coord_dict[n][1] for n in batch_nodes]
+    for season, (s_start, s_end) in SEASONS_RANGES.items():
+        n_days = (s_end - s_start).days + 1
+        expected_hours = n_days * 24
+        logger.info(f"--- Procesando temporada {season} ({s_start} a {s_end}, {n_days} días) ---")
 
-        logger.info(
-            f"Descargando lote {b_idx + 1}/{n_batches} ({len(batch_nodes)} nodos: {batch_nodes[0]} .. {batch_nodes[-1]})..."
-        )
-        batch_data = download_openmeteo_batch(
-            lats=b_lats,
-            lons=b_lons,
-            start_date=DATE_START.isoformat(),
-            end_date=DATE_END.isoformat(),
-        )
+        for b_idx in range(n_batches):
+            b_file = raw_dir / f"batch_{season}_{b_idx:03d}.json"
+            start_i = b_idx * batch_size
+            end_i = min(start_i + batch_size, n_nodes)
+            batch_nodes = nodes[start_i:end_i]
+            batch_tasks.append((b_file, batch_nodes, s_start, s_end))
 
-        if batch_data is not None:
-            with open(b_file, "w", encoding="utf-8") as f:
-                json.dump({"nodes": batch_nodes, "data": batch_data}, f)
-        else:
-            logger.error(
-                f"Lote {b_idx + 1}/{n_batches} no se pudo descargar tras {10} reintentos. Omitiendo archivo temporal."
+            if validate_cached_forecast_json(
+                b_file, expected_nodes=len(batch_nodes), expected_hours=expected_hours
+            ):
+                logger.info(
+                    f"Lote {season} {b_idx + 1}/{n_batches} verificado e íntegro ({b_file.name}). Saltando."
+                )
+                continue
+
+            b_lats = [coord_dict[n][0] for n in batch_nodes]
+            b_lons = [coord_dict[n][1] for n in batch_nodes]
+
+            logger.info(
+                f"Descargando lote {season} {b_idx + 1}/{n_batches} ({len(batch_nodes)} nodos: {batch_nodes[0]} .. {batch_nodes[-1]})..."
+            )
+            batch_data = download_openmeteo_batch(
+                lats=b_lats,
+                lons=b_lons,
+                start_date=s_start.isoformat(),
+                end_date=s_end.isoformat(),
             )
 
-        time.sleep(sleep_between_batches)
+            if batch_data is not None:
+                with open(b_file, "w", encoding="utf-8") as f:
+                    json.dump({"nodes": batch_nodes, "data": batch_data}, f)
+                logger.info(f"Lote {b_file.name} guardado con éxito.")
+            else:
+                logger.error(
+                    f"Lote {season} {b_idx + 1}/{n_batches} no se pudo descargar. Omitiendo archivo temporal."
+                )
+
+            time.sleep(sleep_between_batches)
 
     # Consolidar lotes en un único DataFrame estructurado
     logger.info("Consolidando todos los lotes descargados...")
     extracted_records: list[dict[str, Any]] = []
 
-    for b_file in batch_files:
+    for b_file, _, s_start, s_end in batch_tasks:
         if not b_file.exists():
             logger.warning(f"Lote faltante {b_file.name} omitido en consolidación.")
             continue
-        with open(b_file, encoding="utf-8") as f:
-            content = json.load(f)
-        b_nodes = content["nodes"]
+        try:
+            with open(b_file, encoding="utf-8") as f:
+                content = json.load(f)
+        except Exception as exc:
+            logger.warning(f"Error leyendo {b_file.name}: {exc}. Omitiendo.")
+            continue
+
+        b_nodes = content.get("nodes", [])
         b_data_list = content.get("data")
         if not b_data_list:
             continue
 
         for nid, node_data in zip(b_nodes, b_data_list, strict=True):
-            hourly = node_data["hourly"]
-            times = hourly["time"]
-            t_h0 = hourly["temperature_2m"]
-            rh_h0 = hourly["relative_humidity_2m"]
-            w_h0 = hourly["wind_speed_10m"]
-            p_h0 = hourly["precipitation"]
+            hourly = node_data.get("hourly", {})
+            times = hourly.get("time", [])
+            t_h0 = hourly.get("temperature_2m", [])
+            rh_h0 = hourly.get("relative_humidity_2m", [])
+            w_h0 = hourly.get("wind_speed_10m", [])
+            p_h0 = hourly.get("precipitation", [])
 
             t_h1 = hourly.get("temperature_2m_previous_day1", t_h0)
             rh_h1 = hourly.get("relative_humidity_2m_previous_day1", rh_h0)
@@ -216,8 +309,8 @@ def fetch_all_nodes_forecasts(
             # Mapear índice temporal de las 16:00 UTC para cada fecha
             time_idx_map = {t_str: idx for idx, t_str in enumerate(times)}
 
-            curr_d = DATE_START
-            while curr_d <= DATE_END:
+            curr_d = s_start
+            while curr_d <= s_end:
                 t16_str = f"{curr_d.isoformat()}T16:00"
                 if t16_str in time_idx_map:
                     idx16 = time_idx_map[t16_str]
@@ -534,11 +627,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ejecutar estudio H4 de desfase de fuentes Open-Meteo."
     )
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="Ejecutar solo sonda mínima de diagnóstico (1 nodo, 7 días) y salir.",
+    )
     parser.add_argument("--batch-size", type=int, default=15, help="Número de nodos por lote API")
     parser.add_argument(
         "--sleep", type=float, default=2.0, help="Segundos de pausa entre llamadas API"
     )
     args = parser.parse_args()
+
+    if args.probe:
+        exit_code = run_diagnostic_probe()
+        raise SystemExit(exit_code)
 
     logger.info("=== INICIANDO PROTOCOLO H4 OPEN-METEO ===")
     res = run_h4_evaluation(
