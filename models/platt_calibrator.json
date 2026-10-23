@@ -4,5 +4,5 @@
   "intercept": -0.09002228081226349,
   "formula": "P(y=1 | s) = 1 / (1 + exp(-(slope * logit(s) + intercept)))",
   "fitted_on": "out_of_fold_loso_predictions",
-  "date": "2026-10-22"
+  "date": "2026-10-23"
 }
