@@ -66,7 +66,7 @@ def render_all_tables() -> None:
         print(f"| **{s}** | {pb} | {pp} | {dp} | {lb} | {lp} | {r5b} | {r5p} | {dr5} |")
 
     # =========================================================================
-    # TABLA G2: UMBRALES Y REPRODUCCIÓN ~80/15/4/1%
+    # TABLA G2: UMBRALES Y FIABILIDAD POR CLASE (H1)
     # =========================================================================
     with open(res_dir / "g2_thresholds_oos.json", encoding="utf-8") as f:
         g2 = json.load(f)
@@ -91,28 +91,62 @@ def render_all_tables() -> None:
 
         print(f"| **{s}** | {b_str} | {m_str} | {a_str} | {e_str} | **{alto_ext_ign:.2f}%** |")
 
+    print("\n### TABLA H1: FIABILIDAD POR CLASE (TASA PREDICHA VS OBSERVADA POR 100K CON CALIBRADOR NUEVO)")
+    print("| Temporada | Bajo: Obs / Pred (Ratio) | Moderado: Obs / Pred (Ratio) | Alto: Obs / Pred (Ratio) | Extremo: Obs / Pred (Ratio) |")
+    print("| :--- | :---: | :---: | :---: | :---: |")
+    for row in g2["season_evaluation"]:
+        s = row["season"]
+        rel = row["reliability_100k"]
+        b_r = f"{rel['bajo']['obs']:.2f} / {rel['bajo']['pred']:.2f} ({rel['bajo']['ratio']:.2f}x)"
+        m_r = f"{rel['moderado']['obs']:.2f} / {rel['moderado']['pred']:.2f} ({rel['moderado']['ratio']:.2f}x)"
+        a_r = f"{rel['alto']['obs']:.2f} / {rel['alto']['pred']:.2f} ({rel['alto']['ratio']:.2f}x)"
+        e_r = f"{rel['extremo']['obs']:.2f} / {rel['extremo']['pred']:.2f} ({rel['extremo']['ratio']:.2f}x)"
+        print(f"| **{s}** | {b_r} | {m_r} | {a_r} | {e_r} |")
+
+    agg_r = g2.get("reliability_aggregated", {})
+    if agg_r:
+        b_agg = f"{agg_r['bajo']['obs_rate_100k']:.2f} / {agg_r['bajo']['pred_rate_100k']:.2f} ({agg_r['bajo']['ratio_pred_obs']:.2f}x)"
+        m_agg = f"{agg_r['moderado']['obs_rate_100k']:.2f} / {agg_r['moderado']['pred_rate_100k']:.2f} ({agg_r['moderado']['ratio_pred_obs']:.2f}x)"
+        a_agg = f"{agg_r['alto']['obs_rate_100k']:.2f} / {agg_r['alto']['pred_rate_100k']:.2f} ({agg_r['alto']['ratio_pred_obs']:.2f}x)"
+        e_agg = f"{agg_r['extremo']['obs_rate_100k']:.2f} / {agg_r['extremo']['pred_rate_100k']:.2f} ({agg_r['extremo']['ratio_pred_obs']:.2f}x)"
+        print(f"| **AGREGADO** | {b_agg} | {m_agg} | {a_agg} | {e_agg} |")
+
     # =========================================================================
-    # TABLA G3: COSTO GLOBAL Y BOOTSTRAP PAREADO POR EVENTOS (N=255)
+    # TABLA G3 & H2: COSTO GLOBAL Y BOOTSTRAP PAREADO POR EVENTOS (N=255)
     # =========================================================================
     with open(res_dir / "g3_size_weighting.json", encoding="utf-8") as f:
         g3 = json.load(f)
 
-    print("\n### TABLA G3: PESOS POR TAMAÑO: COSTO GLOBAL Y BOOTSTRAP DE EVENTOS (N=255)")
+    print("\n### TABLA G3 / H2: PESOS POR TAMAÑO: COSTO GLOBAL Y UNIFICACIÓN DE AGREGACIÓN")
     c_all = g3["costs_all_surfaces"]
+    c_small = g3.get("surfaces_lt_1ha", {})
     c_1 = g3["surfaces_ge_1ha"]
-    c_10 = g3["surfaces_ge_10ha"]
+    c_10_macro = g3.get("surfaces_ge_10ha_macro", g3.get("surfaces_ge_10ha", {}))
+    c_10_micro = g3.get("surfaces_ge_10ha_micro_pooled", {})
     b_ev = g3["event_bootstrap_255"]
     dec = g3["decision_rule"]
 
-    print("| Métrica / Superficie | Sin Ponderar | Ponderado Tamaño | Costo / Delta |")
-    print("| :--- | :---: | :---: | :---: |")
-    print(f"| **Todas: PR-AUC** | {c_all['unweighted']['pr_auc']:.6e} | {c_all['weighted']['pr_auc']:.6e} | {c_all['cost_penalty']['pr_auc']:+.2e} |")
-    print(f"| **Todas: Rec@1%** | {c_all['unweighted']['rec1']:.2f}% | {c_all['weighted']['rec1']:.2f}% | {c_all['cost_penalty']['rec1']:+.2f} pp |")
-    print(f"| **Todas: Rec@5%** | {c_all['unweighted']['rec5']:.2f}% | {c_all['weighted']['rec5']:.2f}% | {c_all['cost_penalty']['rec5']:+.2f} pp |")
-    print(f"| **$\\ge 1$ ha: Rec@1%** | {c_1['unweighted']['rec1']:.2f}% | {c_1['weighted']['rec1']:.2f}% | {c_1['delta']['rec1']:+.2f} pp |")
-    print(f"| **$\\ge 1$ ha: Rec@5%** | {c_1['unweighted']['rec5']:.2f}% | {c_1['weighted']['rec5']:.2f}% | {c_1['delta']['rec5']:+.2f} pp |")
-    print(f"| **$\\ge 10$ ha: Rec@1%** | {c_10['unweighted']['rec1']:.2f}% | {c_10['weighted']['rec1']:.2f}% | **{c_10['delta']['rec1']:+.2f} pp** |")
-    print(f"| **$\\ge 10$ ha: Rec@5%** | {c_10['unweighted']['rec5']:.2f}% | {c_10['weighted']['rec5']:.2f}% | **{c_10['delta']['rec5']:+.2f} pp** |")
+    print("| Métrica / Superficie | Sin Ponderar | Ponderado Tamaño | Costo / Delta | Tipo Agregación |")
+    print("| :--- | :---: | :---: | :---: | :---: |")
+    print(f"| **Todas: PR-AUC** | {c_all['unweighted']['pr_auc']:.6e} | {c_all['weighted']['pr_auc']:.6e} | {c_all['cost_penalty']['pr_auc']:+.2e} | Macro (7 temp) |")
+    print(f"| **Todas: Rec@1%** | {c_all['unweighted']['rec1']:.2f}% | {c_all['weighted']['rec1']:.2f}% | {c_all['cost_penalty']['rec1']:+.2f} pp | Macro (7 temp) |")
+    print(f"| **Todas: Rec@5%** | {c_all['unweighted']['rec5']:.2f}% | {c_all['weighted']['rec5']:.2f}% | {c_all['cost_penalty']['rec5']:+.2f} pp | Macro (7 temp) |")
+    if c_small:
+        print(f"| **$< 1$ ha: Rec@1%** | {c_small['unweighted']['rec1']:.2f}% | {c_small['weighted']['rec1']:.2f}% | {c_small['cost_penalty']['rec1']:+.2f} pp | Macro (7 temp) |")
+        print(f"| **$< 1$ ha: Rec@5%** | {c_small['unweighted']['rec5']:.2f}% | {c_small['weighted']['rec5']:.2f}% | {c_small['cost_penalty']['rec5']:+.2f} pp | Macro (7 temp) |")
+    print(f"| **$\\ge 1$ ha: Rec@1%** | {c_1['unweighted']['rec1']:.2f}% | {c_1['weighted']['rec1']:.2f}% | {c_1['delta']['rec1']:+.2f} pp | Macro (7 temp) |")
+    print(f"| **$\\ge 1$ ha: Rec@5%** | {c_1['unweighted']['rec5']:.2f}% | {c_1['weighted']['rec5']:.2f}% | {c_1['delta']['rec5']:+.2f} pp | Macro (7 temp) |")
+    print(f"| **$\\ge 10$ ha: Rec@1% (Macro)** | {c_10_macro['unweighted']['rec1']:.2f}% | {c_10_macro['weighted']['rec1']:.2f}% | **{c_10_macro['delta']['rec1']:+.2f} pp** | Macro (7 temp) |")
+    print(f"| **$\\ge 10$ ha: Rec@5% (Macro)** | {c_10_macro['unweighted']['rec5']:.2f}% | {c_10_macro['weighted']['rec5']:.2f}% | **{c_10_macro['delta']['rec5']:+.2f} pp** | Macro (7 temp) |")
+    if c_10_micro:
+        u_h1 = c_10_micro['hits_unweighted']['top1']
+        w_h1 = c_10_micro['hits_weighted']['top1']
+        u_h5 = c_10_micro['hits_unweighted']['top5']
+        w_h5 = c_10_micro['hits_weighted']['top5']
+        dh1 = c_10_micro['delta_hits']['top1']
+        dh5 = c_10_micro['delta_hits']['top5']
+        print(f"| **$\\ge 10$ ha: Top 1% (Micro N=255)** | {u_h1}/255 ({c_10_micro['hits_unweighted']['rec1_pct']:.2f}%) | {w_h1}/255 ({c_10_micro['hits_weighted']['rec1_pct']:.2f}%) | **+{dh1} aciertos ({c_10_micro['delta_rec_pct']['top1']:+.2f} pp)** | Micro (Agrupado) |")
+        print(f"| **$\\ge 10$ ha: Top 5% (Micro N=255)** | {u_h5}/255 ({c_10_micro['hits_unweighted']['rec5_pct']:.2f}%) | {w_h5}/255 ({c_10_micro['hits_weighted']['rec5_pct']:.2f}%) | **+{dh5} aciertos ({c_10_micro['delta_rec_pct']['top5']:+.2f} pp)** | Micro (Agrupado) |")
 
     d_u1 = b_ev["delta_hits_vs_unweighted_top1"]
     d_u5 = b_ev["delta_hits_vs_unweighted_top5"]

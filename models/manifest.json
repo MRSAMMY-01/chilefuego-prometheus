@@ -10,7 +10,7 @@
       "size_bytes": 291198
     },
     "platt_calibrator.json": {
-      "sha256": "7532b57da76ff8f13019cd6af36cf0bfc7cbc552a84f0a27daeaae3f1a2f1b57",
+      "sha256": "c670fda7fdc3d04bcd920033f68eaaff334141c97eb4a0d83a6ec10f599e022c",
       "size_bytes": 253
     },
     "feature_metadata.json": {
@@ -20,6 +20,14 @@
     "risk_thresholds.json": {
       "sha256": "0863043b384ac2dc94aa4faf226f9bce07085b132907b48af5b82ef908839421",
       "size_bytes": 965
+    },
+    "platt_calibrator_sizew.json": {
+      "sha256": "66f04563996664b03c8e7cba47dfd790ab1e10cb1d436ed8851938b314bb4ff0",
+      "size_bytes": 182
+    },
+    "risk_thresholds_sizew.json": {
+      "sha256": "3fc3eb658179c1ef2591dee6a2cf6179a28cd1387bfc9f284d805c5bc10b3eb9",
+      "size_bytes": 970
     }
   }
 }
