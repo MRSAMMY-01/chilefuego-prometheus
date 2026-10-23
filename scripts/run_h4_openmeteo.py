@@ -72,8 +72,8 @@ def download_openmeteo_batch(
     lons: list[float],
     start_date: str,
     end_date: str,
-    max_retries: int = 5,
-) -> list[dict[str, Any]]:
+    max_retries: int = 10,
+) -> list[dict[str, Any]] | None:
     """Descarga un lote de coordenadas desde Open-Meteo Previous Model Runs API con reintentos exponenciales."""
     lat_param = ",".join(f"{lat:.4f}" for lat in lats)
     lon_param = ",".join(f"{lon:.4f}" for lon in lons)
@@ -105,21 +105,30 @@ def download_openmeteo_batch(
                 return [data]
         except urllib.error.HTTPError as http_err:
             if http_err.code == 429:
-                wait_s = (2**attempt) * 5
+                wait_s = 30 * (2**attempt)
                 logger.warning(
-                    f"Rate limit 429 detectado. Pausando {wait_s}s antes de reintentar..."
+                    f"Rate limit 429 detectado. Pausando {wait_s}s antes de reintentar (intento {attempt + 1}/{max_retries})..."
                 )
                 time.sleep(wait_s)
             else:
                 logger.error(f"Error HTTP {http_err.code} en descarga: {http_err.reason}")
                 if attempt == max_retries - 1:
-                    raise
-                time.sleep(3)
+                    logger.error(
+                        f"Agotados los {max_retries} intentos tras error HTTP {http_err.code}. Omitiendo lote."
+                    )
+                    return None
+                time.sleep(10)
         except Exception as exc:
-            logger.warning(f"Excepción en descarga ({exc}). Intento {attempt + 1}/{max_retries}...")
-            time.sleep((2**attempt) * 2)
+            wait_s = min(300, 15 * (2**attempt))
+            logger.warning(
+                f"Excepción en descarga ({exc}). Pausando {wait_s}s (intento {attempt + 1}/{max_retries})..."
+            )
+            time.sleep(wait_s)
 
-    raise RuntimeError(f"Fallo al descargar lote tras {max_retries} intentos.")
+    logger.error(
+        f"Fallo al descargar lote de {len(lats)} coordenadas tras {max_retries} intentos. Retornando None."
+    )
+    return None
 
 
 def fetch_all_nodes_forecasts(
@@ -166,8 +175,13 @@ def fetch_all_nodes_forecasts(
             end_date=DATE_END.isoformat(),
         )
 
-        with open(b_file, "w", encoding="utf-8") as f:
-            json.dump({"nodes": batch_nodes, "data": batch_data}, f)
+        if batch_data is not None:
+            with open(b_file, "w", encoding="utf-8") as f:
+                json.dump({"nodes": batch_nodes, "data": batch_data}, f)
+        else:
+            logger.error(
+                f"Lote {b_idx + 1}/{n_batches} no se pudo descargar tras {10} reintentos. Omitiendo archivo temporal."
+            )
 
         time.sleep(sleep_between_batches)
 
@@ -176,10 +190,15 @@ def fetch_all_nodes_forecasts(
     extracted_records: list[dict[str, Any]] = []
 
     for b_file in batch_files:
+        if not b_file.exists():
+            logger.warning(f"Lote faltante {b_file.name} omitido en consolidación.")
+            continue
         with open(b_file, encoding="utf-8") as f:
             content = json.load(f)
         b_nodes = content["nodes"]
-        b_data_list = content["data"]
+        b_data_list = content.get("data")
+        if not b_data_list:
+            continue
 
         for nid, node_data in zip(b_nodes, b_data_list, strict=True):
             hourly = node_data["hourly"]
