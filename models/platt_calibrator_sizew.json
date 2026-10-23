@@ -1,0 +1,7 @@
+{
+  "method": "platt_scaling",
+  "slope": 1.0295374393463135,
+  "intercept": -0.09802199900150299,
+  "fitted_on": "out_of_fold_loso_predictions_sizew",
+  "date": "2026-10-23"
+}

@@ -16,6 +16,20 @@
       "pr_auc": 5.636452308626196e-05
     }
   },
+  "surfaces_lt_1ha": {
+    "unweighted": {
+      "rec1": 23.247619079028496,
+      "rec5": 52.012903616935304
+    },
+    "weighted": {
+      "rec1": 21.75867492916994,
+      "rec5": 49.972802243364036
+    },
+    "cost_penalty": {
+      "rec1": 1.4889441498585576,
+      "rec5": 2.040101373571268
+    }
+  },
   "surfaces_ge_1ha": {
     "unweighted": {
       "rec1": 15.937633021486564,
@@ -30,7 +44,7 @@
       "rec5": 1.7486775325815813
     }
   },
-  "surfaces_ge_10ha": {
+  "surfaces_ge_10ha_macro": {
     "unweighted": {
       "rec1": 11.433003994298536,
       "rec5": 32.74273469680465
@@ -42,6 +56,29 @@
     "delta": {
       "rec1": 4.291626701728042,
       "rec5": 5.830628756421504
+    }
+  },
+  "surfaces_ge_10ha_micro_pooled": {
+    "n_total": 255,
+    "hits_unweighted": {
+      "top1": 30,
+      "top5": 85,
+      "rec1_pct": 11.76470588235294,
+      "rec5_pct": 33.33333333333333
+    },
+    "hits_weighted": {
+      "top1": 41,
+      "top5": 102,
+      "rec1_pct": 16.07843137254902,
+      "rec5_pct": 40.0
+    },
+    "delta_hits": {
+      "top1": 11,
+      "top5": 17
+    },
+    "delta_rec_pct": {
+      "top1": 4.313725490196079,
+      "top5": 6.666666666666671
     }
   },
   "event_bootstrap_255": {

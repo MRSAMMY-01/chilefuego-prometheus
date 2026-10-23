@@ -1,0 +1,44 @@
+{
+  "system": "Relative Risk Classification (Size-Weighted Variant)",
+  "calibrated": true,
+  "classes": {
+    "Bajo": {
+      "percentile_range": "[0, 80)",
+      "prob_range": [
+        0.0,
+        0.00012166773376520723
+      ]
+    },
+    "Moderado": {
+      "percentile_range": "[80, 95)",
+      "prob_range": [
+        0.00012166773376520723,
+        0.0004410647670738399
+      ]
+    },
+    "Alto": {
+      "percentile_range": "[95, 99)",
+      "prob_range": [
+        0.0004410647670738399,
+        0.0012440282152965665
+      ]
+    },
+    "Extremo": {
+      "percentile_range": "[99, 100]",
+      "prob_range": [
+        0.0012440282152965665,
+        1.0
+      ]
+    }
+  },
+  "thresholds": {
+    "p80": 0.00012166773376520723,
+    "p95": 0.0004410647670738399,
+    "p99": 0.0012440282152965665
+  },
+  "rates_per_100k": {
+    "p80": 12.166773376520723,
+    "p95": 44.10647670738399,
+    "p99": 124.40282152965665
+  }
+}
