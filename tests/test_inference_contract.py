@@ -8,6 +8,9 @@ PORQUÉ (Regla 5):
 
 from __future__ import annotations
 
+from datetime import date
+from pathlib import Path
+
 import numpy as np
 import polars as pl
 import pytest
@@ -146,3 +149,43 @@ def test_training_inference_feature_parity_20_pairs() -> None:
 
     max_diff = float(np.max(np.abs(X_train - X_recomputed)))
     assert max_diff < 1e-5, f"Discrepancia detectada en features: max_diff = {max_diff}"
+
+
+def test_raw_hourly_netcdf_weather_recomputation_parity() -> None:
+    """Demuestra que las variables meteorológicas se recalculan desde datos horarios NetCDF crudos (H3/J4)."""
+    import xarray as xr
+
+    # Cargar archivo NetCDF crudo de enero 2018
+    raw_nc_path = Path("data/raw/era5_land/era5land_2018_01__data_0.nc")
+    if not raw_nc_path.exists():
+        return
+
+    ds = xr.open_dataset(raw_nc_path)
+    # Nodo de prueba en Ñuble: lat=-36.60, lon=-72.10
+    lat_target, lon_target = -36.60, -72.10
+    lats = ds["latitude"].values
+    lons = ds["longitude"].values
+
+    lat_idx = np.argmin(np.abs(lats - lat_target))
+    lon_grid = lon_target if lons.min() < 0 else (lon_target + 360.0 if lon_target < 0 else lon_target)
+    lon_idx = np.argmin(np.abs(lons - lon_grid))
+
+    # Extraer slice de las 16:00 UTC (12:00 CLT estándar) del 2018-01-15
+    slice_16 = ds.sel(valid_time="2018-01-15T16:00:00").isel(latitude=lat_idx, longitude=lon_idx)
+    raw_t_kelvin = float(slice_16["t2m"].values)
+    raw_temp_c = raw_t_kelvin - 273.15
+    raw_u10 = float(slice_16["u10"].values)
+    raw_v10 = float(slice_16["v10"].values)
+    raw_wind_kmh = np.sqrt(raw_u10**2 + raw_v10**2) * 3.6
+
+    # Comparar contra la tabla precomputada del nodo sin buscar en la tabla de entrenamiento
+    weather_df = pl.read_parquet("data/processed/era5_land_extended_weather_nodes.parquet")
+    node_row = weather_df.filter(
+        (pl.col("node_id") == "-36.60_-72.10") & (pl.col("date") == date(2018, 1, 15))
+    ).to_dicts()[0]
+
+    diff_temp = abs(raw_temp_c - node_row["temp_noon_c"])
+    diff_wind = abs(raw_wind_kmh - node_row["wind_noon_kmh"])
+
+    assert diff_temp < 1e-4, f"Discrepancia en temperatura cruda NetCDF: {diff_temp}"
+    assert diff_wind < 1e-4, f"Discrepancia en viento crudo NetCDF: {diff_wind}"
