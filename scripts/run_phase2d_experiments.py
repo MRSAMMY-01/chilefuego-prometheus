@@ -78,6 +78,9 @@ class DetailedMetrics:
     rec1_10ha: float
     rec5_10ha: float
     n_10ha: int
+    rec1_small: float
+    rec5_small: float
+    n_small: int
 
 
 def evaluate_detailed(
@@ -112,6 +115,11 @@ def evaluate_detailed(
     rec1_10ha = float(np.sum(mask_10ha & (scores >= t1))) / float(n_10ha) if n_10ha > 0 else 0.0
     rec5_10ha = float(np.sum(mask_10ha & (scores >= t5))) / float(n_10ha) if n_10ha > 0 else 0.0
 
+    mask_small = mask_pos & (sups < 1.0)
+    n_small = int(np.sum(mask_small))
+    rec1_small = float(np.sum(mask_small & (scores >= t1))) / float(n_small) if n_small > 0 else 0.0
+    rec5_small = float(np.sum(mask_small & (scores >= t5))) / float(n_small) if n_small > 0 else 0.0
+
     return DetailedMetrics(
         season=season,
         n_pos=n_pos,
@@ -127,6 +135,9 @@ def evaluate_detailed(
         rec1_10ha=rec1_10ha,
         rec5_10ha=rec5_10ha,
         n_10ha=n_10ha,
+        rec1_small=rec1_small,
+        rec5_small=rec5_small,
+        n_small=n_small,
     )
 
 
@@ -135,7 +146,7 @@ class FullDomainBinnedPRAUC:
 
     def __init__(self, scores: np.ndarray, n_bins: int = 10000) -> None:
         quantiles = np.linspace(0, 1, n_bins + 1)
-        self.bin_edges = np.quantile(scores, quantiles)
+        self.bin_edges = np.unique(np.quantile(scores, quantiles))
         self.bin_edges[0] = -np.inf
         self.bin_edges[-1] = np.inf
         self.n_bins = len(self.bin_edges) + 1
@@ -357,25 +368,25 @@ def run_full_phase2d() -> None:
         mean_sc_full = np.mean(scores_full_seeds, axis=0).astype(np.float32)
         mean_sc_sizew = np.mean(scores_sizew_seeds, axis=0).astype(np.float32)
 
-        # G1: PR-AUC Exactas en el dominio completo
-        pr_base_exact = float(average_precision_score(y_test, base_scores))
-        pr_pruned_exact = float(average_precision_score(y_test, mean_sc_pruned))
-        pr_full_exact = float(average_precision_score(y_test, mean_sc_full))
+        # G1: Construcción de cuantiles individuales sobre el universo de scores del pliegue (10.000 bins)
+        calc_bins_p = FullDomainBinnedPRAUC(mean_sc_pruned, n_bins=10000)
+        pos_p, neg_p, u_dates, d_cells = calc_bins_p.compute_daily_counts(mean_sc_pruned, y_test, dates_test)
 
-        delta_pr_base_exact = pr_pruned_exact - pr_base_exact
-        delta_pr_full_exact = pr_pruned_exact - pr_full_exact
+        calc_bins_b = FullDomainBinnedPRAUC(base_scores, n_bins=10000)
+        pos_b, neg_b, _, _ = calc_bins_b.compute_daily_counts(base_scores, y_test, dates_test)
 
-        # G1: Construcción de cuantiles sobre el universo de scores del pliegue (10.000 bins)
-        calc_bins = FullDomainBinnedPRAUC(mean_sc_pruned, n_bins=10000)
-        pos_p, neg_p, u_dates, d_cells = calc_bins.compute_daily_counts(mean_sc_pruned, y_test, dates_test)
-        pos_b, neg_b, _, _ = calc_bins.compute_daily_counts(base_scores, y_test, dates_test)
-        pos_f, neg_f, _, _ = calc_bins.compute_daily_counts(mean_sc_full, y_test, dates_test)
+        calc_bins_f = FullDomainBinnedPRAUC(mean_sc_full, n_bins=10000)
+        pos_f, neg_f, _, _ = calc_bins_f.compute_daily_counts(mean_sc_full, y_test, dates_test)
 
-        # Demostración de coincidencia: binned vs exact
-        pr_binned_p = calc_bins.calc_pr_auc_from_counts(np.sum(pos_p, axis=0), np.sum(neg_p, axis=0))
-        rel_diff_pct = abs(pr_binned_p - pr_pruned_exact) / pr_pruned_exact * 100.0
+        # Estimadores puntuales con el EXACTO mismo estimador que las réplicas
+        pr_binned_p = calc_bins_p.calc_pr_auc_from_counts(np.sum(pos_p, axis=0), np.sum(neg_p, axis=0))
+        pr_binned_b = calc_bins_b.calc_pr_auc_from_counts(np.sum(pos_b, axis=0), np.sum(neg_b, axis=0))
+        pr_binned_f = calc_bins_f.calc_pr_auc_from_counts(np.sum(pos_f, axis=0), np.sum(neg_f, axis=0))
 
-        # G1: Bootstrap por bloques de días (B=1000) con PR-AUC exacta de escala
+        delta_pr_base_point = pr_binned_p - pr_binned_b
+        delta_pr_full_point = pr_binned_p - pr_binned_f
+
+        # G1: Bootstrap por bloques de días (B=1000)
         rng = np.random.default_rng(42)
         n_days = len(u_dates)
         b_deltas_pr_base = np.empty(1000, dtype=np.float64)
@@ -394,16 +405,16 @@ def run_full_phase2d() -> None:
             p_f_b = np.sum(pos_f[idx_d], axis=0)
             n_f_b = np.sum(neg_f[idx_d], axis=0)
 
-            ap_p = calc_bins.calc_pr_auc_from_counts(p_p_b, n_p_b)
-            ap_b = calc_bins.calc_pr_auc_from_counts(p_b_b, n_b_b)
-            ap_f = calc_bins.calc_pr_auc_from_counts(p_f_b, n_f_b)
+            ap_p = calc_bins_p.calc_pr_auc_from_counts(p_p_b, n_p_b)
+            ap_b = calc_bins_b.calc_pr_auc_from_counts(p_b_b, n_b_b)
+            ap_f = calc_bins_f.calc_pr_auc_from_counts(p_f_b, n_f_b)
 
             b_deltas_pr_base[b_iter] = ap_p - ap_b
             b_deltas_pr_full[b_iter] = ap_p - ap_f
 
-            r5_p = calc_bins.calc_rec5_from_counts(p_p_b, n_p_b, tot_cells_b)
-            r5_b = calc_bins.calc_rec5_from_counts(p_b_b, n_b_b, tot_cells_b)
-            r5_f = calc_bins.calc_rec5_from_counts(p_f_b, n_f_b, tot_cells_b)
+            r5_p = calc_bins_p.calc_rec5_from_counts(p_p_b, n_p_b, tot_cells_b)
+            r5_b = calc_bins_b.calc_rec5_from_counts(p_b_b, n_b_b, tot_cells_b)
+            r5_f = calc_bins_f.calc_rec5_from_counts(p_f_b, n_f_b, tot_cells_b)
 
             b_deltas_rec5_base[b_iter] = r5_p - r5_b
             b_deltas_rec5_full[b_iter] = r5_p - r5_f
@@ -413,25 +424,35 @@ def run_full_phase2d() -> None:
         ci_rec5_base = (float(np.quantile(b_deltas_rec5_base, 0.025)), float(np.quantile(b_deltas_rec5_base, 0.975)))
         ci_rec5_full = (float(np.quantile(b_deltas_rec5_full, 0.025)), float(np.quantile(b_deltas_rec5_full, 0.975)))
 
+        # Aserción H0: el punto DEBE caer dentro de su IC 95%
+        assert ci_pr_base[0] <= delta_pr_base_point <= ci_pr_base[1], (
+            f"Fallo H0 en {s_test}: delta_pr_base {delta_pr_base_point} fuera de IC {ci_pr_base}"
+        )
+        assert ci_pr_full[0] <= delta_pr_full_point <= ci_pr_full[1], (
+            f"Fallo H0 en {s_test}: delta_pr_full {delta_pr_full_point} fuera de IC {ci_pr_full}"
+        )
+
+        sig_pr_base = bool(ci_pr_base[0] > 0 or ci_pr_base[1] < 0)
+        sig_pr_full = bool(ci_pr_full[0] > 0 or ci_pr_full[1] < 0)
+
         g1_season_results.append({
             "season": s_test,
             "n_pos": int(np.sum(y_test)),
-            "pr_auc_base": pr_base_exact,
-            "pr_auc_pruned": pr_pruned_exact,
-            "pr_auc_full": pr_full_exact,
-            "delta_pr_base": delta_pr_base_exact,
+            "pr_auc_base": pr_binned_b,
+            "pr_auc_pruned": pr_binned_p,
+            "pr_auc_full": pr_binned_f,
+            "delta_pr_base": delta_pr_base_point,
             "ci_delta_pr_base": ci_pr_base,
-            "sig_pr_base": bool(ci_pr_base[0] > 0 or ci_pr_base[1] < 0),
-            "delta_pr_full": delta_pr_full_exact,
+            "sig_pr_base": sig_pr_base,
+            "delta_pr_full": delta_pr_full_point,
             "ci_delta_pr_full": ci_pr_full,
-            "sig_pr_full": bool(ci_pr_full[0] > 0 or ci_pr_full[1] < 0),
+            "sig_pr_full": sig_pr_full,
             "delta_rec5_base": float(np.mean(b_deltas_rec5_base)),
             "ci_delta_rec5_base": ci_rec5_base,
             "sig_rec5_base": bool(ci_rec5_base[0] > 0 or ci_rec5_base[1] < 0),
             "delta_rec5_full": float(np.mean(b_deltas_rec5_full)),
             "ci_delta_rec5_full": ci_rec5_full,
             "sig_rec5_full": bool(ci_rec5_full[0] > 0 or ci_rec5_full[1] < 0),
-            "binned_rel_diff_pct": rel_diff_pct,
         })
 
         daily_hist_base.append(pos_b)
@@ -472,10 +493,15 @@ def run_full_phase2d() -> None:
                 "hit_w_top5": bool(mean_sc_sizew[idx] >= t5_w),
             })
 
-        # Guardar scores a disco para G2
+        # Guardar scores a disco para G2 y G3
         pl.DataFrame({
             "is_ignition_conaf": y_test,
             "sc_pruned_raw": mean_sc_pruned,
+            "sc_full_raw": mean_sc_full,
+            "sc_sizew_raw": mean_sc_sizew,
+            "base_scores": base_scores,
+            "superficie_ha_max": sups_test,
+            "date": dates_test,
         }).write_parquet(scratch_dir / f"raw_scores_{s_test}.parquet")
 
         del mean_sc_pruned, mean_sc_full, mean_sc_sizew, base_scores, y_test, sups_test
@@ -572,16 +598,18 @@ def run_full_phase2d() -> None:
         base_fw_scores = (fwi_fw * prior_fw).astype(np.float32)
         sc_fw_pruned = b_fw.predict(xgb.DMatrix(p_fw.select(PRUNED_25_FEATURES).to_numpy(), feature_names=PRUNED_25_FEATURES))
 
-        pr_base_fw = float(average_precision_score(y_fw, base_fw_scores))
-        pr_pruned_fw = float(average_precision_score(y_fw, sc_fw_pruned))
-
         m_b = evaluate_detailed(y_fw, base_fw_scores, sups_fw, s_fw)
         m_p = evaluate_detailed(y_fw, sc_fw_pruned, sups_fw, s_fw)
 
-        # Bootstrap por días para este fold hacia adelante
-        calc_bins_fw = FullDomainBinnedPRAUC(sc_fw_pruned, n_bins=10000)
-        pos_p_fw, neg_p_fw, u_d_fw, d_c_fw = calc_bins_fw.compute_daily_counts(sc_fw_pruned, y_fw, dates_fw)
-        pos_b_fw, neg_b_fw, _, _ = calc_bins_fw.compute_daily_counts(base_fw_scores, y_fw, dates_fw)
+        # Bootstrap por días para este fold hacia adelante con cuantiles propios
+        calc_fw_p = FullDomainBinnedPRAUC(sc_fw_pruned, n_bins=10000)
+        pos_p_fw, neg_p_fw, u_d_fw, d_c_fw = calc_fw_p.compute_daily_counts(sc_fw_pruned, y_fw, dates_fw)
+        calc_fw_b = FullDomainBinnedPRAUC(base_fw_scores, n_bins=10000)
+        pos_b_fw, neg_b_fw, _, _ = calc_fw_b.compute_daily_counts(base_fw_scores, y_fw, dates_fw)
+
+        pr_binned_fw_p = calc_fw_p.calc_pr_auc_from_counts(np.sum(pos_p_fw, axis=0), np.sum(neg_p_fw, axis=0))
+        pr_binned_fw_b = calc_fw_b.calc_pr_auc_from_counts(np.sum(pos_b_fw, axis=0), np.sum(neg_b_fw, axis=0))
+        delta_pr_fw_point = pr_binned_fw_p - pr_binned_fw_b
 
         b_fw_deltas_pr = []
         b_fw_deltas_rec5 = []
@@ -596,25 +624,29 @@ def run_full_phase2d() -> None:
             p_b = np.sum(pos_b_fw[idx_d], axis=0)
             n_b = np.sum(neg_b_fw[idx_d], axis=0)
 
-            ap_p = calc_bins_fw.calc_pr_auc_from_counts(p_p, n_p)
-            ap_b = calc_bins_fw.calc_pr_auc_from_counts(p_b, n_b)
+            ap_p = calc_fw_p.calc_pr_auc_from_counts(p_p, n_p)
+            ap_b = calc_fw_b.calc_pr_auc_from_counts(p_b, n_b)
             b_fw_deltas_pr.append(ap_p - ap_b)
 
-            r5_p = calc_bins_fw.calc_rec5_from_counts(p_p, n_p, tot_c)
-            r5_b = calc_bins_fw.calc_rec5_from_counts(p_b, n_b, tot_c)
+            r5_p = calc_fw_p.calc_rec5_from_counts(p_p, n_p, tot_c)
+            r5_b = calc_fw_b.calc_rec5_from_counts(p_b, n_b, tot_c)
             b_fw_deltas_rec5.append(r5_p - r5_b)
 
         ci_fw_pr = (float(np.quantile(b_fw_deltas_pr, 0.025)), float(np.quantile(b_fw_deltas_pr, 0.975)))
         ci_fw_rec5 = (float(np.quantile(b_fw_deltas_rec5, 0.025)), float(np.quantile(b_fw_deltas_rec5, 0.975)))
+
+        assert ci_fw_pr[0] <= delta_pr_fw_point <= ci_fw_pr[1], (
+            f"Fallo H0 forward en {s_fw}: delta_pr {delta_pr_fw_point} fuera de IC {ci_fw_pr}"
+        )
 
         del p_fw
         gc.collect()
 
         g1_forward_results.append({
             "season": s_fw,
-            "pr_auc_base": pr_base_fw,
-            "pr_auc_pruned": pr_pruned_fw,
-            "delta_pr": pr_pruned_fw - pr_base_fw,
+            "pr_auc_base": pr_binned_fw_b,
+            "pr_auc_pruned": pr_binned_fw_p,
+            "delta_pr": delta_pr_fw_point,
             "ci_delta_pr": ci_fw_pr,
             "sig_pr": bool(ci_fw_pr[0] > 0 or ci_fw_pr[1] < 0),
             "lift_base": m_b.lift,
@@ -747,14 +779,61 @@ def run_full_phase2d() -> None:
         dev_alto = pct_alto - 4.0
         dev_ext = pct_ext - 1.0
 
+        n_bajo = int(np.sum(mask_bajo))
+        n_mod = int(np.sum(mask_mod))
+        n_alto = int(np.sum(mask_alto))
+        n_ext = int(np.sum(mask_ext))
+
+        obs_bajo_100k = float(np.sum(y_s[mask_bajo]) / n_bajo * 100000.0) if n_bajo > 0 else 0.0
+        obs_mod_100k = float(np.sum(y_s[mask_mod]) / n_mod * 100000.0) if n_mod > 0 else 0.0
+        obs_alto_100k = float(np.sum(y_s[mask_alto]) / n_alto * 100000.0) if n_alto > 0 else 0.0
+        obs_ext_100k = float(np.sum(y_s[mask_ext]) / n_ext * 100000.0) if n_ext > 0 else 0.0
+
+        pred_bajo_100k = float(np.mean(calib_s[mask_bajo]) * 100000.0) if n_bajo > 0 else 0.0
+        pred_mod_100k = float(np.mean(calib_s[mask_mod]) * 100000.0) if n_mod > 0 else 0.0
+        pred_alto_100k = float(np.mean(calib_s[mask_alto]) * 100000.0) if n_alto > 0 else 0.0
+        pred_ext_100k = float(np.mean(calib_s[mask_ext]) * 100000.0) if n_ext > 0 else 0.0
+
         g2_season_eval.append({
             "season": s,
             "pct_cells": {"bajo": pct_bajo, "moderado": pct_mod, "alto": pct_alto, "extremo": pct_ext},
             "pct_ignitions": {"bajo": ign_bajo, "moderado": ign_mod, "alto": ign_alto, "extremo": ign_ext},
             "deviations": {"bajo": dev_bajo, "moderado": dev_mod, "alto": dev_alto, "extremo": dev_ext},
-            "mean_pred_alto_100k": float(np.mean(calib_s[mask_alto]) * 100000.0),
-            "mean_pred_ext_100k": float(np.mean(calib_s[mask_ext]) * 100000.0),
+            "reliability_100k": {
+                "bajo": {"obs": obs_bajo_100k, "pred": pred_bajo_100k, "ratio": pred_bajo_100k / obs_bajo_100k if obs_bajo_100k > 0 else 1.0},
+                "moderado": {"obs": obs_mod_100k, "pred": pred_mod_100k, "ratio": pred_mod_100k / obs_mod_100k if obs_mod_100k > 0 else 1.0},
+                "alto": {"obs": obs_alto_100k, "pred": pred_alto_100k, "ratio": pred_alto_100k / obs_alto_100k if obs_alto_100k > 0 else 1.0},
+                "extremo": {"obs": obs_ext_100k, "pred": pred_ext_100k, "ratio": pred_ext_100k / obs_ext_100k if obs_ext_100k > 0 else 1.0},
+            },
         })
+
+    # Fiabilidad agregada ponderada por tamaño poblacional de celdas
+    tot_cells = sum(len(season_raw_scores[s]) for s in DATED_SEASONS)
+    agg_rel = {}
+    for tier_key in ["bajo", "moderado", "alto", "extremo"]:
+        tot_tier_cells = sum(int(np.sum(apply_platt(season_raw_scores[s]) < p80_calib if tier_key == "bajo" else
+                                       (apply_platt(season_raw_scores[s]) >= p80_calib) & (apply_platt(season_raw_scores[s]) < p95_calib) if tier_key == "moderado" else
+                                       (apply_platt(season_raw_scores[s]) >= p95_calib) & (apply_platt(season_raw_scores[s]) < p99_calib) if tier_key == "alto" else
+                                       apply_platt(season_raw_scores[s]) >= p99_calib)) for s in DATED_SEASONS)
+        tot_tier_pos = sum(int(np.sum(season_y_true[s][apply_platt(season_raw_scores[s]) < p80_calib if tier_key == "bajo" else
+                                                      (apply_platt(season_raw_scores[s]) >= p80_calib) & (apply_platt(season_raw_scores[s]) < p95_calib) if tier_key == "moderado" else
+                                                      (apply_platt(season_raw_scores[s]) >= p95_calib) & (apply_platt(season_raw_scores[s]) < p99_calib) if tier_key == "alto" else
+                                                      apply_platt(season_raw_scores[s]) >= p99_calib])) for s in DATED_SEASONS)
+        tot_tier_sp = sum(float(np.sum(apply_platt(season_raw_scores[s])[apply_platt(season_raw_scores[s]) < p80_calib if tier_key == "bajo" else
+                                                                          (apply_platt(season_raw_scores[s]) >= p80_calib) & (apply_platt(season_raw_scores[s]) < p95_calib) if tier_key == "moderado" else
+                                                                          (apply_platt(season_raw_scores[s]) >= p95_calib) & (apply_platt(season_raw_scores[s]) < p99_calib) if tier_key == "alto" else
+                                                                          apply_platt(season_raw_scores[s]) >= p99_calib])) for s in DATED_SEASONS)
+
+        obs_100k = (tot_tier_pos / tot_tier_cells * 100000.0) if tot_tier_cells > 0 else 0.0
+        pred_100k = (tot_tier_sp / tot_tier_cells * 100000.0) if tot_tier_cells > 0 else 0.0
+        agg_rel[tier_key] = {
+            "n_cells": tot_tier_cells,
+            "n_pos": tot_tier_pos,
+            "pct_cells": tot_tier_cells / tot_cells * 100.0,
+            "obs_rate_100k": obs_100k,
+            "pred_rate_100k": pred_100k,
+            "ratio_pred_obs": pred_100k / obs_100k if obs_100k > 0 else 1.0,
+        }
 
     # Guardar resultados G2
     g2_results = {
@@ -772,6 +851,7 @@ def run_full_phase2d() -> None:
             "p99_per_100k": p99_calib * 100000.0,
         },
         "season_evaluation": g2_season_eval,
+        "reliability_aggregated": agg_rel,
     }
     with open(results_dir / "g2_thresholds_oos.json", "w", encoding="utf-8") as f:
         json.dump(g2_results, f, indent=2)
@@ -802,11 +882,65 @@ def run_full_phase2d() -> None:
             "rates_per_100k": {"p80": p80_calib * 100000.0, "p95": p95_calib * 100000.0, "p99": p99_calib * 100000.0},
         }, f, indent=2)
 
+    # Ajuste Platt y umbrales para variante ponderada por tamaño (H2)
+    pos_logits_sz = []
+    neg_logits_sz = []
+    for s in DATED_SEASONS:
+        df_s = pl.read_parquet(scratch_dir / f"raw_scores_{s}.parquet")
+        sc_sz = df_s.get_column("sc_sizew_raw").to_numpy()
+        y_s = df_s.get_column("is_ignition_conaf").to_numpy()
+        pos_mask = y_s == 1
+        neg_mask = y_s == 0
+        p_sc = sc_sz[pos_mask]
+        pos_logits_sz.append(np.log(np.clip(p_sc, 1e-7, 1 - 1e-7) / (1 - np.clip(p_sc, 1e-7, 1 - 1e-7))))
+        n_sc = sc_sz[neg_mask]
+        sub_n_idx = rng_platt.choice(len(n_sc), size=min(len(n_sc), 15000), replace=False)
+        sub_n = n_sc[sub_n_idx]
+        neg_logits_sz.append(np.log(np.clip(sub_n, 1e-7, 1 - 1e-7) / (1 - np.clip(sub_n, 1e-7, 1 - 1e-7))))
+
+    X_platt_sz = np.concatenate(pos_logits_sz + neg_logits_sz).reshape(-1, 1)
+    platt_sizew_model = LogisticRegression().fit(X_platt_sz, y_platt, sample_weight=w_platt)
+    slope_sz = float(platt_sizew_model.coef_[0][0])
+    intercept_sz = float(platt_sizew_model.intercept_[0])
+
+    def apply_platt_sz(raw_arr: np.ndarray) -> np.ndarray:
+        logit = np.log(np.clip(raw_arr, 1e-7, 1 - 1e-7) / (1 - np.clip(raw_arr, 1e-7, 1 - 1e-7)))
+        return 1.0 / (1.0 + np.exp(-(slope_sz * logit + intercept_sz)))
+
+    sample_calib_sz = []
+    for s in DATED_SEASONS:
+        df_s = pl.read_parquet(scratch_dir / f"raw_scores_{s}.parquet")
+        sc_sz = df_s.get_column("sc_sizew_raw").to_numpy()
+        idx_samp = rng_platt.choice(len(sc_sz), size=70000, replace=False)
+        sample_calib_sz.append(apply_platt_sz(sc_sz[idx_samp]))
+    pooled_sz_sample = np.concatenate(sample_calib_sz)
+
+    p80_sz = float(np.percentile(pooled_sz_sample, 80.0))
+    p95_sz = float(np.percentile(pooled_sz_sample, 95.0))
+    p99_sz = float(np.percentile(pooled_sz_sample, 99.0))
+
+    with open(models_dir / "platt_calibrator_sizew.json", "w", encoding="utf-8") as f:
+        json.dump({"method": "platt_scaling", "slope": slope_sz, "intercept": intercept_sz, "fitted_on": "out_of_fold_loso_predictions_sizew", "date": time.strftime("%Y-%m-%d")}, f, indent=2)
+
+    with open(models_dir / "risk_thresholds_sizew.json", "w", encoding="utf-8") as f:
+        json.dump({
+            "system": "Relative Risk Classification (Size-Weighted Variant)",
+            "calibrated": True,
+            "classes": {
+                "Bajo": {"percentile_range": "[0, 80)", "prob_range": [0.0, p80_sz]},
+                "Moderado": {"percentile_range": "[80, 95)", "prob_range": [p80_sz, p95_sz]},
+                "Alto": {"percentile_range": "[95, 99)", "prob_range": [p95_sz, p99_sz]},
+                "Extremo": {"percentile_range": "[99, 100]", "prob_range": [p99_sz, 1.0]},
+            },
+            "thresholds": {"p80": p80_sz, "p95": p95_sz, "p99": p99_sz},
+            "rates_per_100k": {"p80": p80_sz * 100000.0, "p95": p95_sz * 100000.0, "p99": p99_sz * 100000.0},
+        }, f, indent=2)
+
     # Actualizar manifest
     manifest_path = models_dir / "manifest.json"
     with open(manifest_path, encoding="utf-8") as f:
         manifest_data = json.load(f)
-    for fn in ["platt_calibrator.json", "risk_thresholds.json"]:
+    for fn in ["platt_calibrator.json", "risk_thresholds.json", "platt_calibrator_sizew.json", "risk_thresholds_sizew.json"]:
         f_p = models_dir / fn
         manifest_data["artefacts"][fn] = {
             "sha256": compute_sha256(f_p),
@@ -835,11 +969,19 @@ def run_full_phase2d() -> None:
     rec5_1ha_unw = float(np.mean([m.rec5_1ha for m in cost_metrics_unweighted]) * 100.0)
     rec5_1ha_w = float(np.mean([m.rec5_1ha for m in cost_metrics_weighted]) * 100.0)
 
-    # 3. >= 10 ha
+    # 3. >= 10 ha (Promedios macro)
     rec1_10ha_unw = float(np.mean([m.rec1_10ha for m in cost_metrics_unweighted]) * 100.0)
     rec1_10ha_w = float(np.mean([m.rec1_10ha for m in cost_metrics_weighted]) * 100.0)
     rec5_10ha_unw = float(np.mean([m.rec5_10ha for m in cost_metrics_unweighted]) * 100.0)
     rec5_10ha_w = float(np.mean([m.rec5_10ha for m in cost_metrics_weighted]) * 100.0)
+
+    # 4. < 1 ha (H2: Costo en incendios menores a 1 ha)
+    rec1_small_unw = float(np.mean([m.rec1_small for m in cost_metrics_unweighted]) * 100.0)
+    rec1_small_w = float(np.mean([m.rec1_small for m in cost_metrics_weighted]) * 100.0)
+    rec5_small_unw = float(np.mean([m.rec5_small for m in cost_metrics_unweighted]) * 100.0)
+    rec5_small_w = float(np.mean([m.rec5_small for m in cost_metrics_weighted]) * 100.0)
+    cost_rec1_small = rec1_small_unw - rec1_small_w
+    cost_rec5_small = rec5_small_unw - rec5_small_w
 
     cost_rec1_all = rec1_all_unw - rec1_all_w
     cost_rec5_all = rec5_all_unw - rec5_all_w
@@ -855,6 +997,23 @@ def run_full_phase2d() -> None:
     hit_arr_unw_t5 = np.array([r["hit_unw_top5"] for r in large_fires_records], dtype=np.int32)
     hit_arr_w_t1 = np.array([r["hit_w_top1"] for r in large_fires_records], dtype=np.int32)
     hit_arr_w_t5 = np.array([r["hit_w_top5"] for r in large_fires_records], dtype=np.int32)
+
+    # Métricas agregadas agrupadas (micro) sobre los 255 eventos
+    hits_unw_t1 = int(np.sum(hit_arr_unw_t1))
+    hits_unw_t5 = int(np.sum(hit_arr_unw_t5))
+    hits_w_t1 = int(np.sum(hit_arr_w_t1))
+    hits_w_t5 = int(np.sum(hit_arr_w_t5))
+    hits_base_t1 = int(np.sum(hit_arr_base_t1))
+    hits_base_t5 = int(np.sum(hit_arr_base_t5))
+
+    rec1_10ha_unw_micro = hits_unw_t1 / 255.0 * 100.0
+    rec5_10ha_unw_micro = hits_unw_t5 / 255.0 * 100.0
+    rec1_10ha_w_micro = hits_w_t1 / 255.0 * 100.0
+    rec5_10ha_w_micro = hits_w_t5 / 255.0 * 100.0
+    delta_hits_unw_1 = hits_w_t1 - hits_unw_t1
+    delta_hits_unw_5 = hits_w_t5 - hits_unw_t5
+    delta_rec1_micro = rec1_10ha_w_micro - rec1_10ha_unw_micro
+    delta_rec5_micro = rec5_10ha_w_micro - rec5_10ha_unw_micro
 
     rng_ev = np.random.default_rng(42)
     b_diff_w_vs_unw_t1 = []
@@ -889,15 +1048,28 @@ def run_full_phase2d() -> None:
             "weighted": {"rec1": rec1_all_w, "rec5": rec5_all_w, "pr_auc": prauc_all_w},
             "cost_penalty": {"rec1": cost_rec1_all, "rec5": cost_rec5_all, "pr_auc": cost_prauc_all},
         },
+        "surfaces_lt_1ha": {
+            "unweighted": {"rec1": rec1_small_unw, "rec5": rec5_small_unw},
+            "weighted": {"rec1": rec1_small_w, "rec5": rec5_small_w},
+            "cost_penalty": {"rec1": cost_rec1_small, "rec5": cost_rec5_small},
+        },
         "surfaces_ge_1ha": {
             "unweighted": {"rec1": rec1_1ha_unw, "rec5": rec5_1ha_unw},
             "weighted": {"rec1": rec1_1ha_w, "rec5": rec5_1ha_w},
             "delta": {"rec1": rec1_1ha_w - rec1_1ha_unw, "rec5": rec5_1ha_w - rec5_1ha_unw},
         },
-        "surfaces_ge_10ha": {
+        "surfaces_ge_10ha_macro": {
             "unweighted": {"rec1": rec1_10ha_unw, "rec5": rec5_10ha_unw},
             "weighted": {"rec1": rec1_10ha_w, "rec5": rec5_10ha_w},
             "delta": {"rec1": rec1_10ha_w - rec1_10ha_unw, "rec5": rec5_10ha_w - rec5_10ha_unw},
+        },
+        "surfaces_ge_10ha_micro_pooled": {
+            "n_total": 255,
+            "hits_baseline": {"top1": hits_base_t1, "top5": hits_base_t5},
+            "hits_unweighted": {"top1": hits_unw_t1, "top5": hits_unw_t5, "rec1_pct": rec1_10ha_unw_micro, "rec5_pct": rec5_10ha_unw_micro},
+            "hits_weighted": {"top1": hits_w_t1, "top5": hits_w_t5, "rec1_pct": rec1_10ha_w_micro, "rec5_pct": rec5_10ha_w_micro},
+            "delta_hits": {"top1": delta_hits_unw_1, "top5": delta_hits_unw_5},
+            "delta_rec_pct": {"top1": delta_rec1_micro, "top5": delta_rec5_micro},
         },
         "event_bootstrap_255": {
             "delta_hits_vs_unweighted_top1": {"mean": float(np.mean(b_diff_w_vs_unw_t1)), "ci95": ci_w_vs_unw_t1, "excludes_zero": bool(ci_w_vs_unw_t1[0] > 0)},
