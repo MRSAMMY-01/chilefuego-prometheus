@@ -1,0 +1,67 @@
+{
+  "test": "FWI 90-Day Spin-up Insensitivity Test (J3)",
+  "date": "2026-10-23",
+  "nodes": {
+    "costa": {
+      "node_id": "-36.1875_-72.8125",
+      "n_days": 67,
+      "dc_final_low": 3.65,
+      "dc_final_high": 3.65,
+      "diff_dc_final": 0.0,
+      "diff_dmc_final": 0.0,
+      "diff_fwi_final": 0.0,
+      "max_diff_dc_last30": 57.56127,
+      "max_diff_dmc_last30": 0.01096,
+      "converged": true
+    },
+    "valle": {
+      "node_id": "-36.5625_-72.0625",
+      "n_days": 67,
+      "dc_final_low": 3.96,
+      "dc_final_high": 3.96,
+      "diff_dc_final": 0.0,
+      "diff_dmc_final": 0.0,
+      "diff_fwi_final": 0.0,
+      "max_diff_dc_last30": 65.01062,
+      "max_diff_dmc_last30": 0.04212,
+      "converged": true
+    },
+    "precordillera": {
+      "node_id": "-36.5625_-71.5625",
+      "n_days": 67,
+      "dc_final_low": 3.76,
+      "dc_final_high": 3.76,
+      "diff_dc_final": 0.0,
+      "diff_dmc_final": 0.0,
+      "diff_fwi_final": 0.0,
+      "max_diff_dc_last30": 0.0,
+      "max_diff_dmc_last30": 0.0,
+      "converged": true
+    },
+    "cordillera": {
+      "node_id": "-36.9375_-71.4375",
+      "n_days": 67,
+      "dc_final_low": 1.55,
+      "dc_final_high": 1.55,
+      "diff_dc_final": 0.0,
+      "diff_dmc_final": 0.0,
+      "diff_fwi_final": 0.0,
+      "max_diff_dc_last30": 0.0,
+      "max_diff_dmc_last30": 0.0,
+      "converged": true
+    },
+    "sur": {
+      "node_id": "-36.75_-72.3125",
+      "n_days": 67,
+      "dc_final_low": 4.0,
+      "dc_final_high": 4.0,
+      "diff_dc_final": 0.0,
+      "diff_dmc_final": 0.0,
+      "diff_fwi_final": 0.0,
+      "max_diff_dc_last30": 41.00079,
+      "max_diff_dmc_last30": 0.01307,
+      "converged": true
+    }
+  },
+  "all_converged": true
+}
