@@ -60,7 +60,8 @@ PREVIOUS_DAY1_VARIABLES = [
     "precipitation_previous_day1",
 ]
 
-ALL_REQUESTED_VARIABLES = BASE_VARIABLES + PREVIOUS_DAY1_VARIABLES
+# Configuración por defecto: 4 variables base continuas con 0% nulos.
+ALL_REQUESTED_VARIABLES = BASE_VARIABLES
 DAILY_BUDGET_CAP = 8000.0
 
 
@@ -215,6 +216,33 @@ def load_nuble_nodes(weather_path: Path) -> tuple[list[str], dict[str, tuple[flo
     return nodes, coord_dict
 
 
+def build_cached_nodes_index(output_dir: Path, season: str) -> dict[str, Path]:
+    """Indexa todos los nodos existentes en output_dir y en data/raw/open_meteo/."""
+    found: dict[str, Path] = {}
+    search_dirs = [output_dir, Path("data/raw/open_meteo")]
+    for sdir in search_dirs:
+        if not sdir.exists():
+            continue
+        # 1. En output_dir/season/{node_id}.json
+        s_season = sdir / season
+        if s_season.exists():
+            for f in s_season.glob("*.json"):
+                if f.stat().st_size > 1000:
+                    found[f.stem] = f
+        # 2. En archivos batch_{season}_*.json (compatibilidad con lotes ya descargados)
+        for f in sdir.glob(f"batch_{season}_*.json"):
+            if f.stat().st_size > 1000:
+                try:
+                    with open(f, encoding="utf-8") as jf:
+                        c = json.load(jf)
+                    for n in c.get("nodes", []):
+                        if n not in found:
+                            found[n] = f
+                except Exception:
+                    pass
+    return found
+
+
 def get_cached_node_file(output_dir: Path, season: str, node_id: str) -> Path | None:
     """Busca si el nodo ya existe y es válido en output_dir o en data/raw/open_meteo/."""
     # 1. En output_dir/season/{node_id}.json
@@ -228,12 +256,22 @@ def get_cached_node_file(output_dir: Path, season: str, node_id: str) -> Path | 
         legacy_single = legacy_dir / f"{season}_{node_id}.json"
         if legacy_single.exists() and legacy_single.stat().st_size > 1000:
             return legacy_single
+        # Buscar en archivos de lote
+        for f in legacy_dir.glob(f"batch_{season}_*.json"):
+            if f.stat().st_size > 1000:
+                try:
+                    with open(f, encoding="utf-8") as jf:
+                        c = json.load(jf)
+                    if node_id in c.get("nodes", []):
+                        return f
+                except Exception:
+                    pass
 
     return None
 
 
-def is_valid_node_json(path: Path, expected_min_hours: int = 4000) -> bool:
-    """Verifica que el archivo JSON contenga variables horarias completas."""
+def is_valid_node_json(path: Path, expected_min_hours: int = 3600) -> bool:
+    """Verifica que el archivo JSON contenga variables horarias completas para las 4 variables base."""
     try:
         with open(path, encoding="utf-8") as f:
             content = json.load(f)
@@ -244,7 +282,15 @@ def is_valid_node_json(path: Path, expected_min_hours: int = 4000) -> bool:
             hourly = content.get("hourly", {})
 
         times = hourly.get("time", [])
-        return len(times) >= expected_min_hours
+        if len(times) < expected_min_hours:
+            return False
+
+        # Verificar presencia y longitud de las 4 variables meteorológicas base
+        for v in BASE_VARIABLES:
+            vals = hourly.get(v, [])
+            if len(vals) < expected_min_hours:
+                return False
+        return True
     except Exception:
         return False
 
@@ -299,9 +345,10 @@ def run_verification(output_dir: Path = Path("data/raw/nwp_archive")) -> None:
             logger.warning(f"No hay archivos descargados para la temporada {season}.")
             continue
 
-        # Analizar valores nulos por variable
-        var_totals: dict[str, int] = {v: 0 for v in ALL_REQUESTED_VARIABLES}
-        var_nulls: dict[str, int] = {v: 0 for v in ALL_REQUESTED_VARIABLES}
+        # Analizar valores nulos por variable (audita tanto variables base como previous_day1)
+        audit_vars = BASE_VARIABLES + PREVIOUS_DAY1_VARIABLES
+        var_totals: dict[str, int] = {v: 0 for v in audit_vars}
+        var_nulls: dict[str, int] = {v: 0 for v in audit_vars}
         min_date_found = "9999-99-99"
         max_date_found = "0000-00-00"
 
@@ -316,16 +363,20 @@ def run_verification(output_dir: Path = Path("data/raw/nwp_archive")) -> None:
                     min_date_found = min(min_date_found, times[0][:10])
                     max_date_found = max(max_date_found, times[-1][:10])
 
-                for var in ALL_REQUESTED_VARIABLES:
-                    vals = hourly.get(var, [])
-                    var_totals[var] += len(vals)
-                    var_nulls[var] += sum(1 for x in vals if x is None)
+                for var in audit_vars:
+                    if var in hourly:
+                        vals = hourly.get(var, [])
+                        var_totals[var] += len(vals)
+                        var_nulls[var] += sum(1 for x in vals if x is None)
+                    else:
+                        var_totals[var] += len(times)
+                        var_nulls[var] += len(times)
             except Exception:
                 pass
 
         logger.info(f"Rango temporal observado en archivos: {min_date_found} a {max_date_found}")
         logger.info("Porcentaje de valores nulos por variable:")
-        for var in ALL_REQUESTED_VARIABLES:
+        for var in audit_vars:
             tot = var_totals[var]
             nulls = var_nulls[var]
             pct_null = (nulls / tot * 100.0) if tot > 0 else 0.0
@@ -378,26 +429,37 @@ def execute_download(
     confirm: bool,
     sleep_sec: float = 2.0,
     output_dir: Path = Path("data/raw/nwp_archive"),
+    selected_season: str = "all",
+    variables_mode: str = "base",
 ) -> dict[str, Any]:
     """Ejecuta la descarga con orden aleatorio, pausa controlada y salida inmediata ante 429."""
     weather_path = Path("data/processed/era5_land_extended_weather_nodes.parquet")
     nodes, coord_dict = load_nuble_nodes(weather_path)
     n_nodes = len(nodes)
-    n_vars = len(ALL_REQUESTED_VARIABLES)
 
-    total_days = sum((e - s).days + 1 for _, s, e in NWP_SEASONS_ORDERED)
+    if variables_mode == "previous_day1":
+        requested_vars = PREVIOUS_DAY1_VARIABLES
+    elif variables_mode == "all":
+        requested_vars = BASE_VARIABLES + PREVIOUS_DAY1_VARIABLES
+    else:
+        requested_vars = BASE_VARIABLES
+
+    n_vars = len(requested_vars)
+
+    if selected_season != "all":
+        seasons_to_run = [s for s in NWP_SEASONS_ORDERED if s[0] == selected_season]
+    else:
+        seasons_to_run = NWP_SEASONS_ORDERED
+
+    total_days = sum((e - s).days + 1 for _, s, e in seasons_to_run)
     total_weighted_cost = compute_weighted_cost(n_nodes, total_days, n_vars)
 
     logger.info("==================================================================")
-    logger.info("PLAN DE DESCARGA NWP ARCHIVE (ADENDA FASE 3A)")
+    logger.info("PLAN DE DESCARGA NWP ARCHIVE (ADENDA FASE 3A / H4)")
     logger.info(f"Modelo seleccionado: {FIXED_MODEL} (cobertura continua Chile desde marzo 2021)")
-    logger.info(f"Variables base ({len(BASE_VARIABLES)}): {BASE_VARIABLES}")
-    logger.info(
-        f"Variables previous_day1 ({len(PREVIOUS_DAY1_VARIABLES)}): {PREVIOUS_DAY1_VARIABLES}"
-    )
-    logger.info(f"Total variables solicitadas: {n_vars}")
+    logger.info(f"Modo de variables: '{variables_mode}' ({n_vars} variables): {requested_vars}")
     logger.info("Alcance temporal estricto (SOLO noviembre a abril):")
-    for s_name, s_start, s_end in NWP_SEASONS_ORDERED:
+    for s_name, s_start, s_end in seasons_to_run:
         s_days = (s_end - s_start).days + 1
         logger.info(f"  * Temporada {s_name}: {s_start} a {s_end} ({s_days} días)")
     logger.info(f"Dominio: {n_nodes} nodos ERA5-Land en Ñuble")
@@ -416,6 +478,8 @@ def execute_download(
             "total_weighted_cost": total_weighted_cost,
             "total_days": total_days,
             "n_nodes": n_nodes,
+            "variables_mode": variables_mode,
+            "selected_season": selected_season,
         }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -432,20 +496,25 @@ def execute_download(
     accumulated_cost = 0.0
 
     # REGLA 8: 2024_25 PRIMERO, luego 2023_24
-    for season, s_start, s_end in NWP_SEASONS_ORDERED:
+    for season, s_start, s_end in seasons_to_run:
         season_dir = output_dir / season
         season_dir.mkdir(parents=True, exist_ok=True)
         s_days = (s_end - s_start).days + 1
         cost_per_node = compute_weighted_cost(1, s_days, n_vars)
 
         logger.info(f"\n>>> INICIANDO PROCESAMIENTO TEMPORADA {season} ({s_start} a {s_end}) <<<")
+        cached_nodes_map = build_cached_nodes_index(output_dir, season)
 
         for idx, nid in enumerate(shuffled_nodes, start=1):
             node_file = season_dir / f"{nid}.json"
 
             # REGLA 2: No volver a pedir por red si ya existe y es válido
-            cached_file = get_cached_node_file(output_dir, season, nid)
-            if cached_file and is_valid_node_json(cached_file, expected_min_hours=s_days * 20):
+            cached_file = cached_nodes_map.get(nid)
+            if (
+                variables_mode == "base"
+                and cached_file
+                and is_valid_node_json(cached_file, expected_min_hours=s_days * 20)
+            ):
                 logger.info(
                     f"[{season}] ({idx}/{n_nodes}) Nodo {nid} ya existe en caché ({cached_file.name}). Saltando."
                 )
@@ -470,11 +539,25 @@ def execute_download(
                 lon=lon,
                 start_date=s_start.isoformat(),
                 end_date=s_end.isoformat(),
-                variables=ALL_REQUESTED_VARIABLES,
+                variables=requested_vars,
                 model=FIXED_MODEL,
             )
 
             if res is not None:
+                # Si el archivo del nodo ya existe, fusionar variables para no pisar las existentes
+                if node_file.exists():
+                    try:
+                        with open(node_file, encoding="utf-8") as jf:
+                            existing_content = json.load(jf)
+                        if "data" in existing_content and existing_content["data"]:
+                            ex_hourly = existing_content["data"][0].get("hourly", {})
+                            new_hourly = res.get("hourly", {})
+                            for k, v in new_hourly.items():
+                                if k != "time":
+                                    ex_hourly[k] = v
+                            res = existing_content["data"][0]
+                    except Exception:
+                        pass
                 with open(node_file, "w", encoding="utf-8") as f:
                     json.dump({"node_id": nid, "data": [res]}, f)
                 accumulated_cost += cost_per_node
@@ -492,7 +575,7 @@ def execute_download(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Descargador robusto de archivo NWP Open-Meteo (Adenda Fase 3A)."
+        description="Descargador robusto de archivo NWP Open-Meteo (Adenda Fase 3A / H4)."
     )
     parser.add_argument(
         "--verify",
@@ -506,6 +589,20 @@ def main() -> None:
         "--confirm",
         action="store_true",
         help="Autorización explícita para lanzar la descarga HTTP.",
+    )
+    parser.add_argument(
+        "--season",
+        type=str,
+        default="all",
+        choices=["all", "2024_25", "2023_24"],
+        help="Temporada a descargar (default: all).",
+    )
+    parser.add_argument(
+        "--variables",
+        type=str,
+        default="base",
+        choices=["base", "previous_day1", "all"],
+        help="Conjunto de variables (default: base).",
     )
     parser.add_argument(
         "--sleep", type=float, default=2.0, help="Segundos de pausa entre nodos (default: 2.0)."
@@ -524,7 +621,11 @@ def main() -> None:
         sys.exit(0)
 
     res = execute_download(
-        confirm=args.confirm, sleep_sec=args.sleep, output_dir=Path(args.output_dir)
+        confirm=args.confirm,
+        sleep_sec=args.sleep,
+        output_dir=Path(args.output_dir),
+        selected_season=args.season,
+        variables_mode=args.variables,
     )
     print(json.dumps(res, indent=2))
 
