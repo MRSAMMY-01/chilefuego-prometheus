@@ -86,7 +86,39 @@ class MonotonicQuantileMapper:
     def transform(self, scores: np.ndarray) -> np.ndarray:
         if self.u_nwp is None or self.v_era5 is None:
             raise ValueError("El mapeador debe ajustarse antes de ser aplicado.")
-        return np.interp(scores, self.u_nwp, self.v_era5)
+
+        scores_arr = np.asarray(scores, dtype=np.float64)
+        out = np.interp(scores_arr, self.u_nwp, self.v_era5)
+
+        # Extrapolación lineal monótona superior (evita flat-clipping en eventos extremos)
+        u_max = self.u_nwp[-1]
+        v_max = self.v_era5[-1]
+        idx_top = -2
+        while idx_top > -len(self.u_nwp) and self.u_nwp[-1] <= self.u_nwp[idx_top]:
+            idx_top -= 1
+        delta_u_top = u_max - self.u_nwp[idx_top]
+        delta_v_top = v_max - self.v_era5[idx_top]
+        slope_top = delta_v_top / delta_u_top if delta_u_top > 0 and delta_v_top > 0 else 1.0
+
+        mask_above = scores_arr > u_max
+        if np.any(mask_above):
+            out[mask_above] = v_max + slope_top * (scores_arr[mask_above] - u_max)
+
+        # Extrapolación lineal monótona inferior
+        u_min = self.u_nwp[0]
+        v_min = self.v_era5[0]
+        idx_bot = 1
+        while idx_bot < len(self.u_nwp) - 1 and self.u_nwp[idx_bot] <= u_min:
+            idx_bot += 1
+        delta_u_bot = self.u_nwp[idx_bot] - u_min
+        delta_v_bot = self.v_era5[idx_bot] - v_min
+        slope_bot = delta_v_bot / delta_u_bot if delta_u_bot > 0 and delta_v_bot > 0 else 1.0
+
+        mask_below = scores_arr < u_min
+        if np.any(mask_below):
+            out[mask_below] = v_min + slope_bot * (scores_arr[mask_below] - u_min)
+
+        return out
 
 
 def fast_average_precision(y_true: np.ndarray, scores: np.ndarray) -> float:
