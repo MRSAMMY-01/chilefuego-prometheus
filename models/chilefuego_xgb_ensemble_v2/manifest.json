@@ -1,0 +1,130 @@
+{
+  "model_name": "chilefuego_xgb_ensemble_v2",
+  "description": "Ensamble de producci\u00f3n de 10 semillas can\u00f3nicas entrenado sobre 7 temporadas completas",
+  "timestamp": 1793053750.374646,
+  "created_at": "2026-10-26",
+  "n_seeds": 10,
+  "seeds": [
+    10,
+    42,
+    100,
+    2024,
+    777,
+    1234,
+    4321,
+    999,
+    88,
+    31415
+  ],
+  "features": [
+    "elevation_mean",
+    "slope_mean",
+    "northness",
+    "eastness",
+    "dist_road_nearest_m",
+    "dist_primary_sec_trunk_m",
+    "road_density_km2",
+    "tree_cover_frac",
+    "shrub_cover_frac",
+    "grass_cover_frac",
+    "crop_cover_frac",
+    "built_cover_frac",
+    "dist_built_nearest_m",
+    "prior_density",
+    "temp_noon_c",
+    "vpd_noon_kpa",
+    "rain_24h_noon_mm",
+    "rh_noon_pct",
+    "wind_noon_kmh",
+    "fwi",
+    "isi",
+    "bui",
+    "ffmc",
+    "dmc",
+    "dc"
+  ],
+  "training_seasons": [
+    "2017_18",
+    "2019_20",
+    "2020_21",
+    "2021_22",
+    "2022_23",
+    "2023_24",
+    "2024_25"
+  ],
+  "canonical_parameters": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "max_depth": 5,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 10.0,
+    "gamma": 1.0,
+    "lambda": 1.0,
+    "nthread": 4
+  },
+  "canonical_num_boost_round": 106,
+  "models": {
+    "10": {
+      "filename": "model_seed_10.json",
+      "sha256": "dae5f9a65ad96db0c7fbb42c8c1e1fe03d18bfa20082be05f38be691c4bcf1f7",
+      "size_bytes": 281391
+    },
+    "42": {
+      "filename": "model_seed_42.json",
+      "sha256": "22f2d20a66cca75d0d7e2710efe4131d77ae4606e9ef575aefe5491ab3e510a5",
+      "size_bytes": 283222
+    },
+    "100": {
+      "filename": "model_seed_100.json",
+      "sha256": "c1cf0c7abd2888d26afa84c48b449112bec613d8e982ede3739248e8e480089f",
+      "size_bytes": 278958
+    },
+    "2024": {
+      "filename": "model_seed_2024.json",
+      "sha256": "568ffb3a81b606d58cf49450d961fd32eaca381da8c6b3c627dc79d4319dd164",
+      "size_bytes": 282080
+    },
+    "777": {
+      "filename": "model_seed_777.json",
+      "sha256": "3259b1a879eba3131b617acfd3d7e98779406a967c0edd9117ea78cf80bd810b",
+      "size_bytes": 286290
+    },
+    "1234": {
+      "filename": "model_seed_1234.json",
+      "sha256": "713faf073679055dd2f32a019c5038eced4806ffec30db83c5dd505a54565510",
+      "size_bytes": 283882
+    },
+    "4321": {
+      "filename": "model_seed_4321.json",
+      "sha256": "6decdb3c37a57399cf498c863bbdc6414111701e642ea0133fc9470d2f0ca9ab",
+      "size_bytes": 275528
+    },
+    "999": {
+      "filename": "model_seed_999.json",
+      "sha256": "ecdb6d98480e105cda5ed56986857e71fc553008e4860faa7add71e09a18b00b",
+      "size_bytes": 279555
+    },
+    "88": {
+      "filename": "model_seed_88.json",
+      "sha256": "919640d2075524fc80b8b3d818f54c0e0609cf9a3493abbf5cb286d0c77faaa7",
+      "size_bytes": 280225
+    },
+    "31415": {
+      "filename": "model_seed_31415.json",
+      "sha256": "d9d94eb11d0e601e6de542e26ab3525f10a1e2a219ad36bc4ceb61981cba4568",
+      "size_bytes": 282609
+    }
+  },
+  "model_scope": "production",
+  "train_seasons": [
+    "2017_18",
+    "2019_20",
+    "2020_21",
+    "2021_22",
+    "2022_23",
+    "2023_24",
+    "2024_25"
+  ]
+}

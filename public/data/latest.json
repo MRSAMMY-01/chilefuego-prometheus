@@ -1,0 +1,90 @@
+{
+  "model_hash": "73a9e61eb3c18c3b29741f1912a3a0ffda50c5390dcf6565f6142a029f7b3dc4",
+  "model_name": "chilefuego_xgb_ensemble_v2",
+  "target_date": "2026-10-28",
+  "run_timestamp": "2026-10-28T14:28:24.039276+00:00",
+  "weather_source": "Open-Meteo Live Forecast API (models=gfs_seamless)",
+  "forecast_model_used": "gfs_seamless",
+  "freshness": "fresh",
+  "quantile_mapping_active": true,
+  "n_cells": 13108,
+  "tier_distribution_pct": {
+    "Bajo": 97.77,
+    "Moderado": 2.23,
+    "Alto": 0.0,
+    "Extremo": 0.0
+  },
+  "alert_status": "NORMAL",
+  "counts_by_tier_baseline": {
+    "Bajo": 12816,
+    "Moderado": 292,
+    "Alto": 0,
+    "Extremo": 0
+  },
+  "pct_by_tier_baseline": {
+    "Bajo": 97.77,
+    "Moderado": 2.23,
+    "Alto": 0.0,
+    "Extremo": 0.0
+  },
+  "counts_by_tier_baseline_raw": {
+    "Bajo": 12638,
+    "Moderado": 470,
+    "Alto": 0,
+    "Extremo": 0
+  },
+  "pct_by_tier_baseline_raw": {
+    "Bajo": 96.41,
+    "Moderado": 3.59,
+    "Alto": 0.0,
+    "Extremo": 0.0
+  },
+  "counts_by_tier_ml": {
+    "Bajo": 12624,
+    "Moderado": 465,
+    "Alto": 18,
+    "Extremo": 1
+  },
+  "pct_by_tier_ml": {
+    "Bajo": 96.31,
+    "Moderado": 3.55,
+    "Alto": 0.14,
+    "Extremo": 0.01
+  },
+  "counts_by_tier_ml_raw": {
+    "Bajo": 12531,
+    "Moderado": 555,
+    "Alto": 21,
+    "Extremo": 1
+  },
+  "pct_by_tier_ml_raw": {
+    "Bajo": 95.6,
+    "Moderado": 4.23,
+    "Alto": 0.16,
+    "Extremo": 0.01
+  },
+  "tier_baseline_thresholds": {
+    "p80": 0.00133319,
+    "p95": 0.00511459,
+    "p99": 0.01174802
+  },
+  "tier_ml_thresholds": {
+    "p80": 0.0001247019972652197,
+    "p95": 0.0004307880881242454,
+    "p99": 0.0012349413009360433
+  },
+  "elapsed_seconds": 30.12,
+  "risk_status": "NORMAL",
+  "tier_distribution_pct_mapped": {
+    "Bajo": 97.77,
+    "Moderado": 2.23,
+    "Alto": 0.0,
+    "Extremo": 0.0
+  },
+  "pct_by_tier_baseline_mapped": {
+    "Bajo": 97.77,
+    "Moderado": 2.23,
+    "Alto": 0.0,
+    "Extremo": 0.0
+  }
+}
