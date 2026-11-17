@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![ML Engine](https://img.shields.io/badge/Model-XGBoost%20Ensemble-orange.svg?logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
 [![Status](https://img.shields.io/badge/Status-Fase%204G%20(Piloto%20Operacional)-emerald.svg)]()
-[![Validation](https://img.shields.io/badge/Tests-93%20Passed%20(100%25)-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
+[![Validation](https://img.shields.io/badge/Tests-94%20Passed%20(100%25)-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
 [![Type Checking](https://img.shields.io/badge/Mypy-Strict%20Verified-blue.svg)](pyproject.toml)
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-black.svg)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
@@ -68,7 +68,7 @@ La arquitectura de SparkPredict AI ha sido validada rigurosamente bajo estándar
 ```
        Validación Retrospectiva (10-Fold Expanding Window)
        15 Temporadas Históricas CONAF (2010/11 - 2024/25)
-       33.000.000+ Celdas-Día | N = 3.747 Incendios Totales | N = 378 Incendios >= 10 ha
+       23.500.000+ Celdas-Día Evaluadas (Alta Temporada) | N = 4.463 Incendios Totales | N = 378 Incendios >= 10 ha
 ```
 
 ### Protocolo de Evaluación Anti-Lookahead
@@ -95,7 +95,7 @@ Diseñado bajo la filosofía de operaciones críticas de infraestructura públic
 * **Política de Idempotencia y Estado Continuo:** El estado biológico-climático del suelo se rastrea de forma acumulativa en `fwi_state.parquet`. Si el proceso se interrumpe y se reinicia, detecta el estado previo sin duplicación de registros ni descalibración física.
 * **Política Estricta de Cuarentena (S7):** Si la telemetría meteorológica externa falla tras 3 intentos con retroceso exponencial, el día se declara formalmente como **"perdido" (*lost*)**, excluyéndose irrevocablemente del análisis confirmatorio del log prospectivo. Se prohíbe explícitamente cualquier reconstrucción sintética *post-hoc* con datos dispares para garantizar la pureza del estudio.
 * **Aislamiento Estricto de Ambientes:** Todo test, simulación de estrés o proceso de benchmarking corre en sandboxes temporales (`tmp_path`) con bandera `is_simulation = True`. La suite de pruebas posee aserciones de bloqueo que impiden escrituras accidentales en la base productiva `prospective_log.parquet`.
-* **Calidad de Código y Tipado Fuerte:** 100% de la suite de pruebas unitarias y de integración (`pytest`, 93 tests) ejecutada con éxito, análisis estático con `ruff` libre de advertencias y verificación formal de tipos con `mypy --strict`.
+* **Calidad de Código y Tipado Fuerte:** 100% de la suite de pruebas unitarias y de integración (`pytest`, 94 tests) ejecutada con éxito, análisis estático con `ruff` libre de advertencias y verificación formal de tipos con `mypy --strict`.
 
 ---
 
@@ -110,7 +110,7 @@ Diseñado bajo la filosofía de operaciones críticas de infraestructura públic
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone https://github.com/ignaciocampos/sparkpredict-ai.git
+   git clone https://github.com/MRSAMMY-01/chilefuego-prometheus.git sparkpredict-ai
    cd sparkpredict-ai
    ```
 
