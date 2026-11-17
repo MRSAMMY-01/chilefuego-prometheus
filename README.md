@@ -9,7 +9,6 @@
 [![Type Checking](https://img.shields.io/badge/Mypy-Strict%20Verified-blue.svg)](pyproject.toml)
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-black.svg)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![R&D Grant](https://img.shields.io/badge/I%2BD%2Bi%2Be-Universidad%20del%20B%C3%ADo--B%C3%ADo-navy.svg)]()
 
 **Motor MLOps de Predicción Espacio-Temporal de Riesgo de Ignición Forestal a Escala Micro-Territorial (1 km²)**
 
@@ -61,9 +60,9 @@ El sistema implementa un flujo de trabajo productivo altamente desacoplado, dise
 
 ---
 
-## 🔬 Validación Científica (Tracción e I+D)
+## 🔬 Validación Científica (Tracción y Desempeño)
 
-La arquitectura de SparkPredict AI ha sido validada rigurosamente bajo estándares científicos reproducibles, respaldada a través del **Concurso de Proyectos de I+D+i+e de la Universidad del Bío-Bío (UBB)**.
+La arquitectura de SparkPredict AI ha sido validada rigurosamente bajo estándares científicos y protocolos reproducibles de evaluación temporal y geoespacial.
 
 ```
        Validación Retrospectiva (10-Fold Expanding Window)
@@ -151,11 +150,11 @@ Diseñado bajo la filosofía de operaciones críticas de infraestructura públic
 ## 👨‍💻 Autor y Liderazgo
 
 **Ignacio Campos**  
-*Ingeniero Civil en Informática — Universidad del Bío-Bío (UBB)*  
+*Ingeniero Civil en Informática*  
 **Fundador & Lead AI Architect — SparkPredict AI**  
-Concepción / Chillán, Chile  
+Ñuble / Concepción, Chile  
 
-*Proyecto desarrollado y acelerado en el marco del ecosistema de innovación y transferencia tecnológica de la Región de Ñuble y el Concurso de I+D+i+e de la Universidad del Bío-Bío.*
+*Proyecto desarrollado con enfoque en transferencia tecnológica, ciencia de datos aplicada e impacto territorial para la prevención de emergencias forestales.*
 
 ---
 
